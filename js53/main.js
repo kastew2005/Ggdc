@@ -238,9 +238,22 @@ try{
   if(id && SaveManager.loadWorld(id)){
     SaveManager.setActive(id);
     try{history.replaceState({},document.title,location.pathname+location.hash)}catch{}
-    requestAnimationFrame(()=>setTimeout(()=>game.start(),180));
+    requestAnimationFrame(()=>setTimeout(async()=>{
+      try{
+        await game.start();
+        if(!game.running){
+          console.error("WORLD START DID NOT ENTER GAME",id);
+          game.menu?.showMain?.();
+        }
+      }catch(err){
+        console.error("WORLD START FAILED",err);
+        const st=document.getElementById("engineStatus");
+        if(st){st.textContent="Ошибка запуска мира: "+(err?.message||err);st.classList.add("error")}
+        game.menu?.showMain?.();
+      }
+    },180));
   }
 }catch(e){console.warn("Auto world launch skipped",e)}
 const boot=document.getElementById("bootSplash"),bar=document.getElementById("bootProgress"),status=document.getElementById("bootStatus");
 requestAnimationFrame(()=>{if(bar)bar.style.width="100%";if(status)status.textContent="Готово";setTimeout(()=>boot?.classList.add("done"),80)});
-addEventListener("beforeunload",()=>{if(!game.skipUnloadSave)game.save()});
+addEventListener("beforeunload",()=>{if(!game.skipUnloadSave && !globalThis.__voxelSkipUnloadSave)game.save()});
