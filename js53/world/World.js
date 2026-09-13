@@ -1,8 +1,8 @@
 import THREE from "../three.js";
-import {Chunk} from "./Chunk.js?v=76.6";
-import {Generator} from "./Generator.js?v=76.6";
-import {BLOCK,INFO} from "./Block.js?v=76.6";
-import {PlantBlock} from "./PlantBlock.js?v=76.6";
+import {Chunk} from "./Chunk.js?v=77.2";
+import {Generator} from "./Generator.js?v=77.2";
+import {BLOCK,INFO} from "./Block.js?v=77.2";
+import {PlantBlock} from "./PlantBlock.js?v=77.2";
 import {GRASS_TEXTURES} from "./GrassTextures.js";
 import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
 

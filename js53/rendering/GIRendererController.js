@@ -34,7 +34,7 @@ export class GIRendererController {
     this.quality.tier=tier;
     if(tier==='ultra'){this.mode='rt-fallback';this.enabled=true;this.strength=.22}
     else if(tier==='high'){this.mode='ssgi';this.enabled=true;this.strength=.16}
-    else if(tier==='medium'){this.mode='probes';this.enabled=true;this.strength=.07}
+    else if(tier==='medium'){this.mode='probes';this.enabled=false;this.strength=0}
     else {this.mode='mobile';this.enabled=false;this.strength=0}
     this.giMaterial&&(this.giMaterial.uniforms.uIntensity.value=this.strength);
   }

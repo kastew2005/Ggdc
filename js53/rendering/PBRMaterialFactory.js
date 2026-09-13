@@ -95,20 +95,10 @@ export class PBRMaterialFactory {
       shader.uniforms.uViewport={value:new THREE.Vector2(1,1)};
       shader.uniforms.uGIStrength={value:material.userData.gi.strength};
       material.userData.shader=shader;
-      // NOTE: `#include <uv_vertex>` / `#include <uv_pars_fragment>` etc. are still
-      // *unexpanded* tokens at this point (Three.js only resolves #include chunks
-      // after onBeforeCompile runs), so a literal `varying` declaration must only be
-      // injected next to a `_pars_*` token (global scope, before main()). Injecting a
-      // `varying` next to a plain `_vertex`/`_fragment` token lands it *inside* main()
-      // (illegal GLSL - varyings can't be declared mid-function) and quietly breaks
-      // the whole program, which is why blocks were invisible while the sky/outline
-      // (different materials) still rendered. We also can't rewrite texture-sampling
-      // chunks like map_fragment via a text-replace here: their source text does not
-      // exist yet either. Instead we mutate the interpolated vMapUv (and its per-map
-      // siblings) in place at the top of main(); every stock chunk that reads it later
-      // in the same function then automatically samples at the parallax-shifted UV.
-      shader.fragmentShader=shader.fragmentShader.replace('#include <uv_pars_fragment>', '#include <uv_pars_fragment>\nuniform float uPOMEnabled; uniform float uPOMScale; uniform float uPOMMinLayers; uniform float uPOMMaxLayers; uniform sampler2D uGITexture; uniform vec2 uViewport; uniform float uGIStrength;\nvec2 pomTrace(vec2 uv, vec3 viewTS){ float nd=max(abs(viewTS.z),.12); float layers=mix(uPOMMaxLayers,uPOMMinLayers,nd); float stepSize=1.0/layers; vec2 delta=viewTS.xy/viewTS.z*uPOMScale/layers; vec2 cur=uv; float curLayer=0.0; float h=texture2D(heightMap,cur).r; for(int k=0;k<32;k++){ if(float(k)>=layers || curLayer>=h) break; cur-=delta; curLayer+=stepSize; h=texture2D(heightMap,cur).r; } return clamp(cur,.002,.998); }');
-      shader.fragmentShader=shader.fragmentShader.replace('void main() {', 'void main() {\n  #ifdef USE_MAP\n  if(uPOMEnabled>.5){ vec3 dp1=dFdx(-vViewPosition); vec3 dp2=dFdy(-vViewPosition); vec2 duv1=dFdx(vMapUv); vec2 duv2=dFdy(vMapUv); vec3 t=normalize(dp1*duv2.y-dp2*duv1.y); vec3 b=normalize(-dp1*duv2.x+dp2*duv1.x); vec3 vts=normalize(vec3(dot(t,-vViewPosition),dot(b,-vViewPosition),dot(normalize(cross(t,b)),-vViewPosition))); vec2 pomUv=pomTrace(vMapUv,vts); vMapUv=pomUv;\n  #ifdef USE_NORMALMAP\n  vNormalMapUv=pomUv;\n  #endif\n  #ifdef USE_ROUGHNESSMAP\n  vRoughnessMapUv=pomUv;\n  #endif\n  #ifdef USE_METALNESSMAP\n  vMetalnessMapUv=pomUv;\n  #endif\n  #ifdef USE_EMISSIVEMAP\n  vEmissiveMapUv=pomUv;\n  #endif\n  }\n  #endif');
+      shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\nvarying vec2 vPOMUv;\nvPOMUv = vMapUv;');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <uv_pars_fragment>', '#include <uv_pars_fragment>\nvarying vec2 vPOMUv;\nuniform float uPOMEnabled; uniform float uPOMScale; uniform float uPOMMinLayers; uniform float uPOMMaxLayers; uniform sampler2D heightMap; uniform sampler2D uGITexture; uniform vec2 uViewport; uniform float uGIStrength;\nvec2 pomTrace(vec2 uv, vec3 viewTS){ float nd=max(abs(viewTS.z),.12); float layers=mix(uPOMMaxLayers,uPOMMinLayers,nd); float stepSize=1.0/layers; vec2 delta=viewTS.xy/viewTS.z*uPOMScale/layers; vec2 cur=uv; float curLayer=0.0; float h=texture2D(heightMap,cur).r; for(int k=0;k<32;k++){ if(float(k)>=layers || curLayer>=h) break; cur-=delta; curLayer+=stepSize; h=texture2D(heightMap,cur).r; } return clamp(cur,.002,.998); }');
+      shader.fragmentShader=shader.fragmentShader.replace('void main() {', 'void main() {\n  vec2 pomUv=vPOMUv;\n  if(uPOMEnabled>.5){ vec3 dp1=dFdx(-vViewPosition); vec3 dp2=dFdy(-vViewPosition); vec2 duv1=dFdx(pomUv); vec2 duv2=dFdy(pomUv); vec3 t=normalize(dp1*duv2.y-dp2*duv1.y); vec3 b=normalize(-dp1*duv2.x+dp2*duv1.x); vec3 vts=normalize(vec3(dot(t,-vViewPosition),dot(b,-vViewPosition),dot(normalize(cross(t,b)),-vViewPosition))); pomUv=pomTrace(pomUv,vts); }');
+      shader.fragmentShader=shader.fragmentShader.replace(/vMapUv(?!\s*;)/g,'pomUv');
       // Replace the roughness/metalness/emission maps with the POM-shifted UV too.
       // The GI texture is intentionally a temporal screen-space bounce input, not a fake DXR claim.
       shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  if(uGIStrength>0.0){ vec2 guv=gl_FragCoord.xy/max(uViewport,vec2(1.0)); vec3 gi=texture2D(uGITexture,guv).rgb; totalEmissiveRadiance += gi*uGIStrength; }');
