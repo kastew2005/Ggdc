@@ -38,8 +38,8 @@
       }
       if(!window.THREE||!window.THREE.REVISION)throw new Error("Three.js загрузился некорректно");
       window.__THREE_READY__=true;window.__THREE_REVISION__=window.THREE.REVISION;setStatus("3D-движок готов • r"+window.THREE.REVISION);
-      const s=document.createElement("script");s.type="module";s.src="./js53/main.js?v=76.3";
-      s.onerror=()=>{setStatus("Ошибка js53/main.js?v=76.0 — смотри консоль Safari");retry?.classList.remove("hidden")};
+      const s=document.createElement("script");s.type="module";s.src="./js53/main.js?v=76.4";
+      s.onerror=()=>{setStatus("Ошибка js53/main.js?v=76.4 — смотри консоль Safari");retry?.classList.remove("hidden")};
       document.body.appendChild(s);
     }catch(e){console.error("BOOT",e);setStatus("Ошибка загрузки: "+(e&&e.message?e.message:String(e)));retry?.classList.remove("hidden")}
   }
@@ -100,11 +100,19 @@
           data.worlds[id]={id,name,seed,created:now,updated:now,save:{version:5,seed,time:180,player:{x:0,y:70,z:0,health:20,hunger:20},inventory:null,systems:null,changes:[]}};
           localStorage.setItem(key,JSON.stringify(data));
           localStorage.setItem(activeKey,id);
+          /* iOS can lose/ignore sessionStorage across a reload in some
+             launch contexts. Use both storage layers plus an explicit URL
+             parameter so main.js can deterministically enter the world. */
+          try{localStorage.setItem('vs_pending_launch_v76',id)}catch{}
+          try{sessionStorage.setItem('vs_pending_launch_v76',id)}catch{}
           try{
-            ['vs_launch_world_v76','vs_launch_world_v75','vs_launch_world_v74','vs_launch_world_v73','vs_launch_world_v72','vs_launch_world_v71'].forEach(k=>sessionStorage.removeItem(k));
-            sessionStorage.setItem('vs_launch_world_v76',id);
-          }catch{}
-          location.reload();
+            const u=new URL(location.href);
+            u.searchParams.set('launch',id);
+            location.replace(u.href);
+          }catch(e){
+            console.warn('World navigation fallback',e);
+            location.reload();
+          }
         }catch(e){
           console.error('CREATE WORLD FAILED',e);
           const status=$('engineStatus');

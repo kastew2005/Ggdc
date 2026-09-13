@@ -107,8 +107,9 @@ class Game{
   }
  }
  findGround(x,z){for(let y=CONFIG.WORLD.HEIGHT-1;y>=0;y--)if(INFO[this.world.getBlock(Math.floor(x),y,Math.floor(z))]?.solid)return y+1;return 70}
- launchWorld(id){if(!id)return false;try{const data=SaveManager.readAll();const world=data.worlds?.[id];if(!world?.save)return false;SaveManager.setActive(id);for(const k of ["vs_launch_world_v75","vs_launch_world_v71","vs_launch_world_v70","vs_launch_world_v69","vs_launch_world_v68","vs_launch_world_v67"])try{sessionStorage.removeItem(k)}catch{}try{sessionStorage.setItem("vs_launch_world_v75",id)}catch{}location.reload();return true}catch(e){console.error("WORLD LAUNCH FAILED",e);return false}}
- newWorld(name="Новый мир",seed=""){this.skipUnloadSave=true;this.running=false;this.network.disconnect();const id=SaveManager.createWorld(name,seed);try{sessionStorage.setItem("vs_launch_world_v75",id)}catch(e){}location.reload()}
+ launchWorld(id){if(!id)return false;try{const data=SaveManager.readAll();const world=data.worlds?.[id];if(!world?.save)return false;SaveManager.setActive(id);return this.navigateToWorld(id)}catch(e){console.error("WORLD LAUNCH FAILED",e);return false}}
+ navigateToWorld(id){if(!id)return false;this.skipUnloadSave=true;try{localStorage.setItem("vs_pending_launch_v76",String(id))}catch{}try{sessionStorage.setItem("vs_pending_launch_v76",String(id))}catch{}try{const u=new URL(location.href);u.searchParams.set("launch",String(id));location.replace(u.href);return true}catch(e){console.error("WORLD NAVIGATION FAILED",e);try{location.reload()}catch{}return true}}
+ newWorld(name="Новый мир",seed=""){this.skipUnloadSave=true;this.running=false;try{this.network.disconnect()}catch{}try{const id=SaveManager.createWorld(name,seed);SaveManager.setActive(id);this.navigateToWorld(id)}catch(e){console.error("CREATE WORLD FAILED",e);const t=document.getElementById("saveToast");if(t){t.textContent="Не удалось создать мир: "+(e?.message||e);t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}}}
  hostLAN(){this.save();const u=`${location.protocol==="https:"?"wss":"ws"}://${location.host}/ws`;this.mode="lan-host";this.setModeBadge();this.menu.hideMain();this.network.connect(u,true);this.network.chatLine("★ Локальная игра открыта для друзей");this.network.syncHostWorld();this.running=true;if(!matchMedia("(pointer:coarse)").matches)this.renderer.domElement.requestPointerLock?.()}
  connectLAN(){const v=document.getElementById("lanAddress"),u=v?.value.trim();if(!u){this.network.chatLine("Укажи адрес LAN-сервера");return}this.mode="lan-client";this.setModeBadge();this.menu.hideMain();this.network.connect(u,false);this.running=true;if(!matchMedia("(pointer:coarse)").matches)this.renderer.domElement.requestPointerLock?.()}
  resume(){this.menu.hidePause();this.running=true;this.setGameUI(true);this.renderer.domElement.requestPointerLock?.()}
@@ -229,7 +230,17 @@ async toggleFullscreen(){try{if(document.fullscreenElement){await document.exitF
 }
 let game;try{game=new Game()}catch(e){console.error("FATAL GAME CONSTRUCTOR",e);const s=document.getElementById("engineStatus");if(s){s.textContent="Ошибка инициализации мира: "+(e?.message||e);s.classList.add("error")}throw e}
 globalThis.__voxelGame=game;
-try{const launchKeys=["vs_launch_world_v76","vs_launch_world_v75","vs_launch_world_v74","vs_launch_world_v73","vs_launch_world_v72","vs_launch_world_v71","vs_launch_world_v70","vs_launch_world_v69","vs_launch_world_v68","vs_launch_world_v67"];const key=launchKeys.find(k=>{try{return !!sessionStorage.getItem(k)}catch{return false}});if(key){let id=null;try{id=sessionStorage.getItem(key);sessionStorage.removeItem(key)}catch{}if(id)SaveManager.setActive(id);requestAnimationFrame(()=>setTimeout(()=>game.start(),120))}}catch(e){console.warn("Auto world launch skipped",e)}
+try{
+  const params=new URLSearchParams(location.search);
+  let id=params.get("launch")||null;
+  if(!id){try{id=localStorage.getItem("vs_pending_launch_v76");if(id)localStorage.removeItem("vs_pending_launch_v76")}catch{}}
+  if(!id){try{id=sessionStorage.getItem("vs_pending_launch_v76");if(id)sessionStorage.removeItem("vs_pending_launch_v76")}catch{}}
+  if(id && SaveManager.loadWorld(id)){
+    SaveManager.setActive(id);
+    try{history.replaceState({},document.title,location.pathname+location.hash)}catch{}
+    requestAnimationFrame(()=>setTimeout(()=>game.start(),180));
+  }
+}catch(e){console.warn("Auto world launch skipped",e)}
 const boot=document.getElementById("bootSplash"),bar=document.getElementById("bootProgress"),status=document.getElementById("bootStatus");
 requestAnimationFrame(()=>{if(bar)bar.style.width="100%";if(status)status.textContent="Готово";setTimeout(()=>boot?.classList.add("done"),80)});
 addEventListener("beforeunload",()=>{if(!game.skipUnloadSave)game.save()});
