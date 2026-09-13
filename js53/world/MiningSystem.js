@@ -1,5 +1,5 @@
 import THREE from "../three.js";
-import {BLOCK,INFO} from "./Block.js";
+import {BLOCK,INFO} from "./Block.js?v=76.9";
 import {BLOCK_DATA,TOOL_DATA,TOOL_TYPE,TOOL_TIER,LOOT_TABLES,getBlockData,getToolData} from "./MiningData.js";
 
 export class MiningSystem{
