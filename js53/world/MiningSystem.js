@@ -1,5 +1,5 @@
 import THREE from "../three.js";
-import {BLOCK,INFO} from "./Block.js?v=76.9";
+import {BLOCK,INFO} from "./Block.js?v=77.0";
 import {BLOCK_DATA,TOOL_DATA,TOOL_TYPE,TOOL_TIER,LOOT_TABLES,getBlockData,getToolData} from "./MiningData.js";
 
 export class MiningSystem{
@@ -22,7 +22,7 @@ export class MiningSystem{
   }
   toolSignature(t){return `${t.id}:${t.durability}:${t.data?.toolType||"none"}:${t.data?.tier||0}:${t.data?.efficiency||0}:${t.data?.silkTouch||0}:${t.data?.fortune||0}`}
   stop(){this.held=false;this.reset()}
-  reset(){this.currentProgress=0;this.targetKey="";this.targetId=0;this.toolKey="";this.crackStage=-1;this.game.hideBreakProgress?.()}
+  reset(){this.currentProgress=0;this.targetKey="";this.targetId=0;this.toolKey="";this.crackStage=-1;const el=document.getElementById("blockBreakProgress");if(el)el.classList.add("hidden")}
   update(dt){
     if(!this.held||!this.game.running||this.game.inventoryOpen)return;
     const hit=this.game.player.raycast();const key=this.targetKeyOf(hit);const tool=this.tool();
