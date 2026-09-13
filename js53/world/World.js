@@ -105,11 +105,182 @@ export class World{
     return M;
   }
   applyChanges(c){const s=c.size;for(const [k,b] of this.changes){const [x,y,z]=k.split(",").map(Number);if(Math.floor(x/s)===c.cx&&Math.floor(z/s)===c.cz)c.set(((x%s)+s)%s,y,((z%s)+s)%s,b)}}
-  async generateAround(px,pz){if(!this.workerStarted)this.initWorker();const s=this.cfg.WORLD.CHUNK_SIZE,r=this.cfg.WORLD.RENDER_DISTANCE,cx=Math.floor(px/s),cz=Math.floor(pz/s),center=this.key(cx,cz);if(this.generationBusy||this.lastCenter===center)return false;this.lastCenter=center;this.generationBusy=true;const jobs=[];for(let x=-r;x<=r;x++)for(let z=-r;z<=r;z++)if(x*x+z*z<=r*r&&!this.chunks.has(this.key(cx+x,cz+z)))jobs.push([cx+x,cz+z]);jobs.sort((a,b)=>(a[0]-cx)**2+(a[1]-cz)**2-(b[0]-cx)**2-(b[1]-cz)**2);this.generationProgress={done:0,total:jobs.length,created:0};try{const concurrency=Math.max(1,Math.min(this.workers.length||1,this.cfg.QUALITY?.tier==='low'?1:2));for(let i=0;i<jobs.length;i+=concurrency){const batch=jobs.slice(i,i+concurrency);await Promise.all(batch.map(([x,z])=>Promise.resolve(this.generateChunk(x,z,true)).then(()=>{this.generationProgress.done++;this.generationProgress.created++}).catch(err=>{this.generationProgress.done++;console.error('Chunk generation failed',x,z,err)})));await new Promise(requestAnimationFrame)}this.unloadFar(cx,cz,r+1);return true}finally{this.generationBusy=false;this.generationProgress=null}}
-  generateChunk(cx,cz,useWorker=true){const s=this.cfg.WORLD.CHUNK_SIZE,h=this.cfg.WORLD.HEIGHT;if(useWorker&&this.workers.length){const id=++this.workerSeq,w=this.workers[this.workerCursor++%this.workers.length];return new Promise((resolve,reject)=>{let settled=false;const finishFallback=()=>{if(settled)return;settled=true;this.workerJobs.delete(id);try{const c=this.generateChunk(cx,cz,false);resolve(c)}catch(e){reject(e)}};const timer=setTimeout(finishFallback,3500);this.workerJobs.set(id,{resolve:blocks=>{if(settled)return;settled=true;clearTimeout(timer);const c=new Chunk(cx,cz,s,h);c.blocks.set(blocks);this.applyChanges(c);this.chunks.set(this.key(cx,cz),c);this.queueRebuild(c);this.rebuildAt(cx-1,cz);this.rebuildAt(cx+1,cz);this.rebuildAt(cx,cz-1);this.rebuildAt(cx,cz+1);resolve(c)},reject:()=>{clearTimeout(timer);finishFallback()}});try{w.postMessage({id,seed:this.cfg.WORLD.SEED,cx,cz,size:s,height:h,seaLevel:this.cfg.WORLD.SEA_LEVEL})}catch(e){clearTimeout(timer);finishFallback()}})}
-    const c=new Chunk(cx,cz,s,h);for(let x=0;x<s;x++)for(let z=0;z<s;z++){const wx=cx*s+x,wz=cz*s+z,top=this.gen.height(wx,wz);for(let y=0;y<h;y++)c.set(x,y,z,this.gen.getWithHeight(wx,y,wz,top,this.cfg.WORLD.SEA_LEVEL));
-          this.gen.decorateColumn(wx,wz,top,{getBlock:(a,b,d)=>{const lx=a-cx*s,lz=d-cz*s;return (lx>=0&&lx<s&&lz>=0&&lz<s&&b>=0&&b<h)?c.get(lx,b,lz):BLOCK.AIR},setBlock:(a,b,d,v)=>{const lx=a-cx*s,lz=d-cz*s;if(lx>=0&&lx<s&&lz>=0&&lz<s&&b>=0&&b<h)c.set(lx,b,lz,v)}});
-        } this.gen.caves.apply(c,cx,cz,s,h);for(const [lx,yy,lz,id] of this.gen.structurePlacements(cx,cz,s,h)){const cur=c.get(lx,yy,lz);if(cur===BLOCK.AIR||cur===BLOCK.GRASS||cur===BLOCK.DIRT||cur===BLOCK.SAND||cur===BLOCK.GRAVEL||id===BLOCK.WATER_L4||id===BLOCK.FARMLAND||id===BLOCK.WHEAT)c.set(lx,yy,lz,id)} }this.applyChanges(c);this.chunks.set(this.key(cx,cz),c);this.queueRebuild(c);this.rebuildAt(cx-1,cz);this.rebuildAt(cx+1,cz);this.rebuildAt(cx,cz-1);this.rebuildAt(cx,cz+1);return c;}
+  async generateAround(px,pz){
+    if(!this.workerStarted) this.initWorker();
+    const s=this.cfg.WORLD.CHUNK_SIZE;
+    const r=this.cfg.WORLD.RENDER_DISTANCE;
+    const cx=Math.floor(px/s);
+    const cz=Math.floor(pz/s);
+    const center=this.key(cx,cz);
+    if(this.generationBusy || this.lastCenter===center) return false;
+
+    this.lastCenter=center;
+    this.generationBusy=true;
+    const jobs=[];
+    for(let x=-r;x<=r;x++){
+      for(let z=-r;z<=r;z++){
+        if(x*x+z*z<=r*r && !this.chunks.has(this.key(cx+x,cz+z))){
+          jobs.push([cx+x,cz+z]);
+        }
+      }
+    }
+    jobs.sort((a,b)=>{
+      const da=(a[0]-cx)*(a[0]-cx)+(a[1]-cz)*(a[1]-cz);
+      const db=(b[0]-cx)*(b[0]-cx)+(b[1]-cz)*(b[1]-cz);
+      return da-db;
+    });
+
+    this.generationProgress={done:0,total:jobs.length,created:0};
+    try{
+      const concurrency=Math.max(
+        1,
+        Math.min(this.workers.length||1,this.cfg.QUALITY?.tier==='low'?1:2)
+      );
+      for(let i=0;i<jobs.length;i+=concurrency){
+        const batch=jobs.slice(i,i+concurrency);
+        await Promise.all(batch.map(([x,z])=>{
+          return Promise.resolve(this.generateChunk(x,z,true))
+            .then(()=>{
+              this.generationProgress.done++;
+              this.generationProgress.created++;
+            })
+            .catch(err=>{
+              this.generationProgress.done++;
+              console.error('Chunk generation failed',x,z,err);
+            });
+        }));
+        await new Promise(resolve=>requestAnimationFrame(resolve));
+      }
+      this.unloadFar(cx,cz,r+1);
+      return true;
+    }finally{
+      this.generationBusy=false;
+      this.generationProgress=null;
+    }
+  }
+
+  generateChunk(cx,cz,useWorker=true){
+    const s=this.cfg.WORLD.CHUNK_SIZE;
+    const h=this.cfg.WORLD.HEIGHT;
+
+    if(useWorker && this.workers.length){
+      const id=++this.workerSeq;
+      const worker=this.workers[this.workerCursor++%this.workers.length];
+      return new Promise((resolve,reject)=>{
+        let settled=false;
+        const finishFallback=()=>{
+          if(settled) return;
+          settled=true;
+          this.workerJobs.delete(id);
+          try{
+            resolve(this.generateChunk(cx,cz,false));
+          }catch(error){
+            reject(error);
+          }
+        };
+        const timer=setTimeout(finishFallback,3500);
+
+        this.workerJobs.set(id,{
+          resolve:blocks=>{
+            if(settled) return;
+            settled=true;
+            clearTimeout(timer);
+            const c=new Chunk(cx,cz,s,h);
+            c.blocks.set(blocks);
+            this.applyChanges(c);
+            this.chunks.set(this.key(cx,cz),c);
+            this.queueRebuild(c);
+            this.rebuildAt(cx-1,cz);
+            this.rebuildAt(cx+1,cz);
+            this.rebuildAt(cx,cz-1);
+            this.rebuildAt(cx,cz+1);
+            resolve(c);
+          },
+          reject:()=>{
+            clearTimeout(timer);
+            finishFallback();
+          }
+        });
+
+        try{
+          worker.postMessage({
+            id,
+            seed:this.cfg.WORLD.SEED,
+            cx,
+            cz,
+            size:s,
+            height:h,
+            seaLevel:this.cfg.WORLD.SEA_LEVEL
+          });
+        }catch(error){
+          clearTimeout(timer);
+          finishFallback();
+        }
+      });
+    }
+
+    const c=new Chunk(cx,cz,s,h);
+    for(let x=0;x<s;x++){
+      for(let z=0;z<s;z++){
+        const wx=cx*s+x;
+        const wz=cz*s+z;
+        const top=this.gen.height(wx,wz);
+
+        for(let y=0;y<h;y++){
+          c.set(x,y,z,this.gen.getWithHeight(wx,y,wz,top,this.cfg.WORLD.SEA_LEVEL));
+        }
+
+        this.gen.decorateColumn(wx,wz,top,{
+          getBlock:(a,b,d)=>{
+            const lx=a-cx*s;
+            const lz=d-cz*s;
+            if(lx>=0&&lx<s&&lz>=0&&lz<s&&b>=0&&b<h){
+              return c.get(lx,b,lz);
+            }
+            return BLOCK.AIR;
+          },
+          setBlock:(a,b,d,v)=>{
+            const lx=a-cx*s;
+            const lz=d-cz*s;
+            if(lx>=0&&lx<s&&lz>=0&&lz<s&&b>=0&&b<h){
+              c.set(lx,b,lz,v);
+            }
+          }
+        });
+      }
+    }
+
+    this.gen.caves.apply(c,cx,cz,s,h);
+
+    for(const placement of this.gen.structurePlacements(cx,cz,s,h)){
+      const lx=placement[0];
+      const yy=placement[1];
+      const lz=placement[2];
+      const id=placement[3];
+      const cur=c.get(lx,yy,lz);
+      if(
+        cur===BLOCK.AIR ||
+        cur===BLOCK.GRASS ||
+        cur===BLOCK.DIRT ||
+        cur===BLOCK.SAND ||
+        cur===BLOCK.GRAVEL ||
+        id===BLOCK.WATER_L4 ||
+        id===BLOCK.FARMLAND ||
+        id===BLOCK.WHEAT
+      ){
+        c.set(lx,yy,lz,id);
+      }
+    }
+
+    this.applyChanges(c);
+    this.chunks.set(this.key(cx,cz),c);
+    this.queueRebuild(c);
+    this.rebuildAt(cx-1,cz);
+    this.rebuildAt(cx+1,cz);
+    this.rebuildAt(cx,cz-1);
+    this.rebuildAt(cx,cz+1);
+    return c;
+  }
   getBlock(x,y,z){if(y<0||y>=this.cfg.WORLD.HEIGHT)return BLOCK.AIR;const ck=`${x|0},${y|0},${z|0}`;if(this.changes.has(ck))return this.changes.get(ck);const s=this.cfg.WORLD.CHUNK_SIZE,cx=Math.floor(x/s),cz=Math.floor(z/s),c=this.chunks.get(this.key(cx,cz));return c?c.get(((x%s)+s)%s,y,((z%s)+s)%s):BLOCK.AIR}
   setBlock(x,y,z,b){if(y<0||y>=this.cfg.WORLD.HEIGHT)return false;
     const old=this.getBlock(x,y,z), pair=PlantBlock.pair(old); if(pair&&b!==pair&&old!==b){const s0=this.cfg.WORLD.CHUNK_SIZE; if(pair===BLOCK.GRASS_HIGH_TOP)this.setBlock(x,y-1,z,BLOCK.AIR); else if(pair===BLOCK.GRASS_HIGH_BOTTOM)this.setBlock(x,y+1,z,BLOCK.AIR);}const s=this.cfg.WORLD.CHUNK_SIZE,cx=Math.floor(x/s),cz=Math.floor(z/s),c=this.chunks.get(this.key(cx,cz));if(!c)return false;const lx=((x%s)+s)%s,lz=((z%s)+s)%s;c.set(lx,y,lz,b);this.changes.set(`${x|0},${y|0},${z|0}`,b);this.queueRebuild(c);if(lx===0)this.rebuildAt(cx-1,cz);if(lx===s-1)this.rebuildAt(cx+1,cz);if(lz===0)this.rebuildAt(cx,cz-1);if(lz===s-1)this.rebuildAt(cx,cz+1);return true}
