@@ -1,0 +1,16 @@
+import {PixelButton} from './PixelButton.js';
+import {PixelSlider} from './PixelSlider.js';
+export class SettingsUIController{
+ constructor(game,settings){this.game=game;this.settings=settings;this.panel=document.getElementById('settingsPanel');if(!this.panel)return;this.bindButtons();this.bindControls();this.render();}
+ bindButtons(){this.panel.querySelectorAll('button').forEach(b=>new PixelButton(b,{audio:this.game.audio}));document.getElementById('closeSettings')?.addEventListener('click',()=>this.close());document.getElementById('settingsDone')?.addEventListener('click',()=>this.close())}
+ close(){this.settings.save();this.panel.classList.add('hidden')}
+ bindControls(){const q=id=>document.getElementById(id),S=this.settings;
+  const rd=q('renderDistance'),rv=q('renderValue');if(rd){rd.min=4;rd.max=32;new PixelSlider(rd,{audio:this.game.audio,onInput:v=>S.set('renderDistance',v),format:v=>`${v} чанков`})}
+  const sens=q('sensitivity'),sv=q('sensitivityValue');if(sens){sens.min=1;sens.max=20;new PixelSlider(sens,{audio:this.game.audio,onInput:v=>S.set('mouseSensitivity',v),format:v=>`${v}%`})}
+  const max=q('maxFPS'),mv=q('maxFPSValue');if(max){max.min=0;max.max=230;new PixelSlider(max,{audio:this.game.audio,onInput:v=>S.set('maxFPS',v===0?0:30+v),format:v=>v===0?'Без ограничений':`${30+v} FPS`})}
+  const volumeMap=[['audioMaster','master'],['audioMusic','music'],['audioSfx','sfx'],['audioBlocks','blocks'],['audioEntities','entities'],['audioAmbient','ambient']];for(const [id,key] of volumeMap){const el=q(id);if(el)new PixelSlider(el,{audio:this.game.audio,onInput:v=>S.set(key,v/100),format:v=>`${Math.round(v)}%`})}
+  const cycle=(id,key,values,labels)=>{const b=q(id);if(!b)return;const paint=()=>{const i=Math.max(0,values.indexOf(S.get(key)));b.textContent=`${labels[i]}`;if(key==='guiScale'){const badge=q('guiScaleBadge');if(badge)badge.textContent=String(S.get(key)).toUpperCase()+' '+(S.get(key)==='auto'?'': 'x')}};b.addEventListener('click',()=>{const i=(values.indexOf(S.get(key))+1)%values.length;S.set(key,values[i]);if(key==='fullscreen')S.get('fullscreen')?S.fullscreen():document.exitFullscreen?.();paint()});paint()};
+  cycle('graphicsToggle','graphics',['fast','detailed'],['Графика: БЫСТРАЯ','Графика: ДЕТАЛЬНАЯ']);cycle('lightingToggle','smoothLighting',[false,true],['Мягкое освещение: ВЫКЛ','Мягкое освещение: ВКЛ']);cycle('guiScaleToggle','guiScale',['auto','1','2','3'],['GUI: АВТО','GUI: 1x','GUI: 2x','GUI: 3x']);cycle('fullscreenToggle','fullscreen',[false,true],['Полный экран: ВЫКЛ','Полный экран: ВКЛ']);cycle('invertToggle','invertMouse',[false,true],['Инверсия мыши: ВЫКЛ','Инверсия мыши: ВКЛ']);q('keybindingsButton')?.addEventListener('click',()=>document.getElementById('controlsEditor')?.classList.remove('hidden'));
+ }
+ render(){const S=this.settings,q=id=>document.getElementById(id);const set=(id,v)=>{const e=q(id);if(e)e.value=v};set('renderDistance',S.get('renderDistance'));set('sensitivity',S.get('mouseSensitivity'));set('maxFPS',S.get('maxFPS')===0?0:Math.max(0,Number(S.get('maxFPS'))-30));for(const [id,key] of [['audioMaster','master'],['audioMusic','music'],['audioSfx','sfx'],['audioBlocks','blocks'],['audioEntities','entities'],['audioAmbient','ambient']])set(id,Math.round(S.get(key)*100));S.applyGUI()}
+}

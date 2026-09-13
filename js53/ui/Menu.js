@@ -1,4 +1,4 @@
-import {SaveManager} from "../save/SaveManager.js";
+import {SaveManager} from "../save/SaveManager.js";import {PixelButton} from "./PixelButton.js";
 export class Menu{
  constructor(game){this.game=game;this.main=document.getElementById("mainMenu");this.pause=document.getElementById("pauseMenu");const q=id=>document.getElementById(id);
   // Robust mobile menu input: use Pointer Events as the single source of truth.
@@ -25,8 +25,10 @@ export class Menu{
   bind("playButton",()=>this.openMode());bind("settingsButton",()=>q("settingsPanel")?.classList.remove("hidden"));bind("creditsButton",()=>q("creditsPanel")?.classList.remove("hidden"));
   bind("modeBackButton",()=>this.closeAllSub());bind("singleplayerChoice",()=>this.openWorlds());bind("multiplayerChoice",()=>this.openMultiplayer());bind("singleBackButton",()=>this.openMode());bind("newWorldButton",()=>this.openCreateWorld());bind("newWorldBackButton",()=>this.openWorlds());bind("createWorldButton",()=>this.createWorld());
   bind("closeSettings",()=>q("settingsPanel")?.classList.add("hidden"));bind("closeCredits",()=>q("creditsPanel")?.classList.add("hidden"));bind("closeMultiplayer",()=>this.openMode());
-  const rd=q("renderDistance"),rv=q("renderValue"),sen=q("sensitivity"),sv=q("sensitivityValue"),quality=q("qualitySelect");if(rd)rd.oninput=()=>{rv.textContent=rd.value;this.game.world.cfg.WORLD.RENDER_DISTANCE=+rd.value;this.game.world.lastCenter=""};if(sen)sen.oninput=()=>{sv.textContent=sen.value;this.game.controls.sensitivity=+sen.value*.0003125};quality?.addEventListener("change",e=>this.game.setQuality(e.target.value));q("reducedMotion")?.addEventListener("change",e=>this.game.reducedMotion=e.target.checked);
+  this.game.settingsUI?.render();
+  this.rootButtons();
  }
+ rootButtons(){this.main?.querySelectorAll('button').forEach(b=>new PixelButton(b,{audio:this.game.audio}))}
  closeAllSub(){for(const id of ["modeSelectPanel","singleplayerPanel","newWorldPanel","multiplayerPanel"])document.getElementById(id)?.classList.add("hidden");this.showMain()}
  openMode(){this.main.classList.add("hidden");for(const id of ["singleplayerPanel","newWorldPanel","multiplayerPanel"])document.getElementById(id)?.classList.add("hidden");document.getElementById("modeSelectPanel")?.classList.remove("hidden")}
  openMultiplayer(){document.getElementById("modeSelectPanel")?.classList.add("hidden");document.getElementById("multiplayerPanel")?.classList.remove("hidden")}

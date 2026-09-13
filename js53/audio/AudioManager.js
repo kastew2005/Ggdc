@@ -3,7 +3,7 @@ import {SoundPool} from './SoundPool.js';
 import {profileForBlock} from './SurfaceAudioProfile.js';
 
 const KEY='voxel-survival-audio-v1';
-const DEFAULTS={master:1,music:.42,sfx:.8,ambient:.55,entities:.8};
+const DEFAULTS={master:1,music:.42,sfx:.8,blocks:.8,ambient:.55,entities:.8};
 
 /**
  * Web Audio based AudioManager.
@@ -13,7 +13,7 @@ const DEFAULTS={master:1,music:.42,sfx:.8,ambient:.55,entities:.8};
 export class AudioManager{
   constructor(){
     this.ctx=null;this.enabled=true;this.started=false;this.lastStep=0;this.stepClock=0;this.ambientClock=0;this.musicClock=0;this.musicStep=0;this.entityClocks=new WeakMap();
-    this.volumes=this.loadVolumes();this.pool=null;this.master=null;this.music=null;this.sfx=null;this.ambient=null;this.entities=null;this.ui=null;this.underwater=null;
+    this.volumes=this.loadVolumes();this.pool=null;this.master=null;this.music=null;this.sfx=null;this.blocks=null;this.ambient=null;this.entities=null;this.ui=null;this.underwater=null;
     this.listenerReady=false;this.wasSubmerged=false;this.wasGrounded=false;this.lastSurface='stone';
   }
   loadVolumes(){try{return {...DEFAULTS,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{return {...DEFAULTS}}}
@@ -23,9 +23,9 @@ export class AudioManager{
     try{
       const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('Web Audio API unavailable');
       this.ctx=new C();
-      this.master=this.ctx.createGain();this.music=this.ctx.createGain();this.sfx=this.ctx.createGain();this.ambient=this.ctx.createGain();this.entities=this.ctx.createGain();this.ui=this.ctx.createGain();
+      this.master=this.ctx.createGain();this.music=this.ctx.createGain();this.sfx=this.ctx.createGain();this.blocks=this.ctx.createGain();this.ambient=this.ctx.createGain();this.entities=this.ctx.createGain();this.ui=this.ctx.createGain();
       this.underwater=this.ctx.createBiquadFilter();this.underwater.type='lowpass';this.underwater.frequency.value=18000;this.underwater.Q.value=.45;
-      for(const [node,key] of [[this.music,'music'],[this.sfx,'sfx'],[this.ambient,'ambient'],[this.entities,'entities']])node.connect(this.underwater);
+      for(const [node,key] of [[this.music,'music'],[this.sfx,'sfx'],[this.blocks,'blocks'],[this.ambient,'ambient'],[this.entities,'entities']])node.connect(this.underwater);
       this.ui.connect(this.master);this.underwater.connect(this.master);this.master.connect(this.ctx.destination);
       this.pool=new SoundPool(this.ctx,Math.max(16,Math.min(36,Number(window.innerWidth)>900?32:20)));
       this.applyVolumes();this.started=true;this.enabled=true;this.resume();return true;
@@ -35,8 +35,8 @@ export class AudioManager{
   ensure(){if(!this.started&&!this.start())return false;this.resume();return !!this.ctx&&this.enabled}
   setVolume(channel,value){if(!(channel in DEFAULTS))return;this.volumes[channel]=Math.max(0,Math.min(1,Number(value)||0));this.applyVolumes();this.saveVolumes()}
   getVolume(channel){return this.volumes[channel]??DEFAULTS[channel]}
-  applyVolumes(){if(!this.master)return;this.master.gain.value=this.volumes.master;this.music.gain.value=this.volumes.music;this.sfx.gain.value=this.volumes.sfx;this.ambient.gain.value=this.volumes.ambient;this.entities.gain.value=this.volumes.entities;this.ui.gain.value=this.volumes.sfx}
-  categoryNode(category){return category==='music'?this.music:category==='ambient'?this.ambient:category==='entities'?this.entities:category==='ui'?this.ui:this.sfx}
+  applyVolumes(){if(!this.master)return;this.master.gain.value=this.volumes.master;this.music.gain.value=this.volumes.music;this.sfx.gain.value=this.volumes.sfx;this.blocks.gain.value=this.volumes.blocks;this.ambient.gain.value=this.volumes.ambient;this.entities.gain.value=this.volumes.entities;this.ui.gain.value=this.volumes.sfx}
+  categoryNode(category){return category==='music'?this.music:category==='blocks'?this.blocks:category==='ambient'?this.ambient:category==='entities'?this.entities:category==='ui'?this.ui:this.sfx}
   rand(a=.07){return 1+(Math.random()*2-1)*a}
   envelope(g,t,d,peak){g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0001,peak),t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+d)}
   tone({freq=220,d=.08,type='triangle',gain=.08,slide=0,category='sfx',pitch=1,position=null}){
@@ -69,9 +69,9 @@ export class AudioManager{
     if(p.inWater||profile.steps==='water'){this.noise({d:.12,gain:.055,filter:750,category:'sfx',position:p.pos});this.tone({freq:120,d:.08,type:'sine',gain:.025,category:'sfx',position:p.pos})}
     else this.noise({d:.055,gain:sprint?.052:.035,filter:profile.steps==='snow'?500:900,category:'sfx',position:p.pos});
   }
-  blockHit(id,pos){const profile=profileForBlock(id),hard=Math.max(.2,Number(INFO[id]?.hardness||profile.hardness||1));this.noise({d:.045+Math.min(.07,hard*.008),gain:.05,filter:profile.breaks==='wood'?750:profile.breaks==='sand'?550:1500,position:pos});this.tone({freq:profile.breaks==='wood'?95:profile.breaks==='sand'?70:130,d:.055,gain:.025,type:'triangle',position:pos,pitch:this.rand(.08)})}
-  blockBreak(id,pos){const profile=profileForBlock(id);this.noise({d:.12,gain:.10,filter:profile.breaks==='sand'?500:1200,position:pos});this.tone({freq:profile.breaks==='wood'?105:82,d:.10,gain:.04,type:'sine',position:pos,pitch:this.rand(.06)})}
-  blockPlace(id,pos){const profile=profileForBlock(id);this.noise({d:.07,gain:.065,filter:profile.breaks==='wood'?900:1300,position:pos});this.tone({freq:profile.breaks==='stone'?180:140,d:.08,gain:.025,type:'triangle',position:pos,pitch:this.rand(.06)})}
+  blockHit(id,pos){const profile=profileForBlock(id),hard=Math.max(.2,Number(INFO[id]?.hardness||profile.hardness||1));this.noise({d:.045+Math.min(.07,hard*.008),gain:.05,filter:profile.breaks==='wood'?750:profile.breaks==='sand'?550:1500,position:pos,category:'blocks'});this.tone({freq:profile.breaks==='wood'?95:profile.breaks==='sand'?70:130,d:.055,gain:.025,type:'triangle',position:pos,pitch:this.rand(.08),category:'blocks'})}
+  blockBreak(id,pos){const profile=profileForBlock(id);this.noise({d:.12,gain:.10,filter:profile.breaks==='sand'?500:1200,position:pos,category:'blocks'});this.tone({freq:profile.breaks==='wood'?105:82,d:.10,gain:.04,type:'sine',position:pos,pitch:this.rand(.06),category:'blocks'})}
+  blockPlace(id,pos){const profile=profileForBlock(id);this.noise({d:.07,gain:.065,filter:profile.breaks==='wood'?900:1300,position:pos,category:'blocks'});this.tone({freq:profile.breaks==='stone'?180:140,d:.08,gain:.025,type:'triangle',position:pos,pitch:this.rand(.06),category:'blocks'})}
   pickup(position){this.tone({freq:520,d:.07,type:'triangle',gain:.055,slide:180,position});this.tone({freq:740,d:.10,type:'triangle',gain:.03,slide:120,position,category:'sfx'})}
   block(){this.blockPlace(0,this._game?.player?.pos||null)}
   break(id=BLOCK.STONE,pos=null){this.blockBreak(id,pos||this._game?.player?.pos)}
