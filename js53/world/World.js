@@ -1,8 +1,8 @@
 import THREE from "../three.js";
-import {Chunk} from "./Chunk.js?v=77.2";
-import {Generator} from "./Generator.js?v=77.2";
-import {BLOCK,INFO} from "./Block.js?v=77.2";
-import {PlantBlock} from "./PlantBlock.js?v=77.2";
+import {Chunk} from "./Chunk.js?v=77.3";
+import {Generator} from "./Generator.js?v=77.3";
+import {BLOCK,INFO} from "./Block.js?v=77.3";
+import {PlantBlock} from "./PlantBlock.js?v=77.3";
 import {GRASS_TEXTURES} from "./GrassTextures.js";
 import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
 
@@ -76,7 +76,10 @@ export class World{
     const map=(file==='grass_top.png'||file==='grass_side.png'||file==='grass_bottom.png')
       ? this.imageTexture(file)
       : this.texture(file,q[0],q[1],q[2]);
-    const m=this._materialBlockId!=null && this.pbr ? this.pbr.create({id:this._materialBlockId,file,color,map,opts}) : new THREE.MeshLambertMaterial({color:0xffffff,map,...opts,side:THREE.DoubleSide});
+    // Stable voxel path: use the native Lambert shader for world chunks.
+    // The optional PBR/POM pipeline stays available in the project, but it is
+    // not allowed to break the actual terrain render on iOS/WebGL.
+    const m=new THREE.MeshLambertMaterial({color:0xffffff,map,...opts,side:THREE.DoubleSide});
     if(file==='water'){
       m.userData.waveTime=0;
       const previousCompile=m.onBeforeCompile;
