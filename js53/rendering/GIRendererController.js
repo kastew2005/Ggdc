@@ -41,15 +41,52 @@ export class GIRendererController {
   setRayTracingPreferred(v){ if(v && this.quality.tier==='high'){this.mode='rt-fallback';this.enabled=true;this.strength=.22} else this.setPreset(this.quality.tier); }
   render(){
     if(!this.enabled){this.renderer.render(this.scene,this.camera);return;}
-    this.frame++;
-    // Materials sample the previous temporal bounce. This avoids read/write feedback.
-    this.world?.pbr?.setGITexture(this.giRead.texture);
-    this.renderer.setRenderTarget(this.write);this.renderer.clear();this.renderer.render(this.scene,this.camera);
-    // Build a cheap low-frequency indirect buffer from the current frame.
-    this.giMaterial.uniforms.uColor.value=this.write.texture;this.giMaterial.uniforms.uTexel.value.set(1/this.width,1/this.height);
-    this.renderer.setRenderTarget(this.giWrite);this.renderer.setViewport(0,0,this.giWrite.width,this.giWrite.height);this.renderer.clear();this.renderer.render(this.quadScene,this.quadCamera);
-    this.renderer.setRenderTarget(null);this.renderer.setViewport(0,0,this.width,this.height);this.renderer.render(this.sceneToScreen(this.write.texture),this.quadCamera);
-    const t=this.read;this.read=this.write;this.write=t;const g=this.giRead;this.giRead=this.giWrite;this.giWrite=g;
+    try{
+      this.frame++;
+      // Three.js setViewport() uses CSS/logical pixels and multiplies them by
+      // the renderer pixel ratio internally. The GI targets are already sized
+      // in physical pixels, so passing target.width directly here double-scales
+      // the viewport on mobile (for example .68 x .68), leaving the rest of the
+      // canvas black. Always convert target pixels back to logical pixels.
+      const pr=Math.max(.0001,this.renderer.getPixelRatio?.()||1);
+      const fullW=this.width/pr,fullH=this.height/pr;
+      const giW=this.giWrite.width/pr,giH=this.giWrite.height/pr;
+
+      // Materials sample the previous temporal bounce. This avoids read/write feedback.
+      this.world?.pbr?.setGITexture(this.giRead.texture);
+
+      this.renderer.setScissorTest(false);
+      this.renderer.setRenderTarget(this.write);
+      this.renderer.setViewport(0,0,fullW,fullH);
+      this.renderer.clear();
+      this.renderer.render(this.scene,this.camera);
+
+      // Build a cheap low-frequency indirect buffer from the current frame.
+      this.giMaterial.uniforms.uColor.value=this.write.texture;
+      this.giMaterial.uniforms.uTexel.value.set(1/this.width,1/this.height);
+      this.renderer.setRenderTarget(this.giWrite);
+      this.renderer.setViewport(0,0,giW,giH);
+      this.renderer.clear();
+      this.renderer.render(this.quadScene,this.quadCamera);
+
+      // Composite the rendered scene back to the complete canvas.
+      this.renderer.setRenderTarget(null);
+      this.renderer.setViewport(0,0,fullW,fullH);
+      this.renderer.render(this.sceneToScreen(this.write.texture),this.quadCamera);
+
+      const t=this.read;this.read=this.write;this.write=t;
+      const g=this.giRead;this.giRead=this.giWrite;this.giWrite=g;
+    }catch(err){
+      // Never let the optional GI pipeline blank the game on a mobile GPU.
+      console.warn("GI fallback:",err);
+      this.enabled=false;this.strength=0;
+      this.world?.pbr?.setGI(0,false);
+      this.renderer.setRenderTarget(null);
+      this.renderer.setScissorTest(false);
+      const s=this.renderer.getSize(new THREE.Vector2());
+      this.renderer.setViewport(0,0,s.x,s.y);
+      this.renderer.render(this.scene,this.camera);
+    }
   }
   sceneToScreen(texture){
     if(!this.screenMaterial)this.screenMaterial=new THREE.MeshBasicMaterial({map:texture,toneMapped:false});
