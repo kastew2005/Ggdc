@@ -1,9 +1,10 @@
 import THREE from "../three.js";
-import {Chunk} from "./Chunk.js";
-import {Generator} from "./Generator.js";
-import {BLOCK,INFO} from "./Block.js";
-import {PlantBlock} from "./PlantBlock.js";
+import {Chunk} from "./Chunk.js?v=76.6";
+import {Generator} from "./Generator.js?v=76.6";
+import {BLOCK,INFO} from "./Block.js?v=76.6";
+import {PlantBlock} from "./PlantBlock.js?v=76.6";
 import {GRASS_TEXTURES} from "./GrassTextures.js";
+import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
 
 /*
  * Voxel Survival Universe 43
@@ -18,7 +19,7 @@ export class World{
     this.scene=scene;this.cfg=cfg;this.chunks=new Map();this.meshes=new Map();
     this.gen=new Generator(cfg.WORLD.SEED);this.generationBusy=false;this.lastCenter="";
     this.changes=new Map();this._textureCache=new Map();
-    this.materials=this.makeMaterials();this.workers=[];this.workerSeq=0;this.workerJobs=new Map();this.workerCursor=0;
+    this.pbr=new PBRMaterialFactory(cfg,this);this.materials=this.makeMaterials();this.workers=[];this.workerSeq=0;this.workerJobs=new Map();this.workerCursor=0;
     this.meshQueue=[];this.meshQueued=new Set();this.meshBuilding=false;this.workerStarted=false;this.starterVisual=null;
   }
   initWorker(){if(this.workerStarted)return;this.workerStarted=true;try{const cores=navigator.hardwareConcurrency||2;const count=Math.max(1,Math.min(2,cores>4?2:1));for(let i=0;i<count;i++){const w=new Worker(new URL("./WorldWorker.js",import.meta.url),{type:"module"});w.onmessage=e=>{const job=this.workerJobs.get(e.data.id);if(!job)return;this.workerJobs.delete(e.data.id);if(e.data.error)job.reject(new Error(e.data.error));else job.resolve(new Uint8Array(e.data.buffer));};w.onerror=e=>{console.warn("World worker:",e.message);for(const [id,job] of this.workerJobs){job.reject(new Error("Worker failed"));this.workerJobs.delete(id)}};this.workers.push(w)}}catch(e){this.workers=[]}}
@@ -75,40 +76,40 @@ export class World{
     const map=(file==='grass_top.png'||file==='grass_side.png'||file==='grass_bottom.png')
       ? this.imageTexture(file)
       : this.texture(file,q[0],q[1],q[2]);
-    const m=new THREE.MeshLambertMaterial({color:0xffffff,map,...opts,side:THREE.DoubleSide});
+    const m=this._materialBlockId!=null && this.pbr ? this.pbr.create({id:this._materialBlockId,file,color,map,opts}) : new THREE.MeshLambertMaterial({color:0xffffff,map,...opts,side:THREE.DoubleSide});
     if(file==='water'){
       m.userData.waveTime=0;
+      const previousCompile=m.onBeforeCompile;
       m.onBeforeCompile=shader=>{
+        previousCompile?.(shader);
         shader.uniforms.uWaveTime={value:0}; m.userData.shader=shader;
         shader.vertexShader='uniform float uWaveTime;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.y += sin(transformed.x*2.2 + uWaveTime*1.8)*0.018 + cos(transformed.z*1.7 + uWaveTime)*0.014;');
         shader.fragmentShader='uniform float uWaveTime;\n'+shader.fragmentShader;
       };
-      m.onBeforeRender=()=>{if(m.userData.shader)m.userData.shader.uniforms.uWaveTime.value=m.userData.waveTime||0};
+      m.onBeforeRender=()=>{if(m.userData.shader?.uniforms?.uWaveTime)m.userData.shader.uniforms.uWaveTime.value=m.userData.waveTime||0};
     }
     return m;
   }
   makeMaterials(){
-    const M={}, add=(id,color,file,opts={})=>{M[id]=this.mat(color,file,opts)};
+    const M={}, add=(id,color,file,opts={})=>{this._materialBlockId=id;M[id]=this.mat(color,file,opts);this._materialBlockId=null};
     // Supplied 16x16 grass atlas: separate top/side/bottom materials.
-    M.grass_top=this.mat('#ffffff','grass_top.png');
-    M.grass_side=this.mat('#ffffff','grass_side.png');
-    M.grass_bottom=this.mat('#ffffff','grass_bottom.png');
+    this._materialBlockId=BLOCK.GRASS;M.grass_top=this.mat('#ffffff','grass_top.png');M.grass_side=this.mat('#ffffff','grass_side.png');M.grass_bottom=this.mat('#ffffff','grass_bottom.png');this._materialBlockId=null;
     add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','gravel');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:true,alphaTest:.5,opacity:.96});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','planks');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','birch_leaves',{transparent:true,alphaTest:.5,opacity:.9});
     add(BLOCK.SPRUCE_LOG,'#60472e','spruce_log');add(BLOCK.SPRUCE_LEAVES,'#3f603b','spruce_leaves',{transparent:true,alphaTest:.5,opacity:.9});
     add(BLOCK.JUNGLE_LOG,'#7d4e2c','jungle_log');add(BLOCK.JUNGLE_LEAVES,'#3d823c','jungle_leaves',{transparent:true,alphaTest:.5,opacity:.9});
     add(BLOCK.GRASS_LOW,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_BOTTOM,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_TOP,'#5e963e','plant',{transparent:true,opacity:.95});
     add(BLOCK.FLOWER_POPPY,'#b83d3d','poppy',{transparent:true,opacity:.95});add(BLOCK.FLOWER_DANDELION,'#e4c33c','dandelion',{transparent:true,opacity:.95});
     add(BLOCK.CACTUS,'#4d913e','cactus');add(BLOCK.DEAD_BUSH,'#80683c','dead_bush',{transparent:true,opacity:.95});add(BLOCK.VINE,'#4c8b3f','vine',{transparent:true,opacity:.95});add(BLOCK.WATERMELON,'#4d813c','watermelon');
-    add(BLOCK.GOLD_ORE,'#7a7468','ore');
+    add(BLOCK.GOLD_ORE,'#7a7468','ore');add(BLOCK.SEAGRASS,'#3f8d55','plant',{transparent:true,opacity:.9});add(BLOCK.KELP,'#2f7048','plant',{transparent:true,opacity:.9});
     for(const id of [BLOCK.WATER_L1,BLOCK.WATER_L2,BLOCK.WATER_L3,BLOCK.WATER_L4])add(id,'#3973c9','water',{transparent:true,opacity:.52});
     return M;
   }
   applyChanges(c){const s=c.size;for(const [k,b] of this.changes){const [x,y,z]=k.split(",").map(Number);if(Math.floor(x/s)===c.cx&&Math.floor(z/s)===c.cz)c.set(((x%s)+s)%s,y,((z%s)+s)%s,b)}}
   async generateAround(px,pz){if(!this.workerStarted)this.initWorker();const s=this.cfg.WORLD.CHUNK_SIZE,r=this.cfg.WORLD.RENDER_DISTANCE,cx=Math.floor(px/s),cz=Math.floor(pz/s),center=this.key(cx,cz);if(this.generationBusy||this.lastCenter===center)return false;this.lastCenter=center;this.generationBusy=true;const jobs=[];for(let x=-r;x<=r;x++)for(let z=-r;z<=r;z++)if(x*x+z*z<=r*r&&!this.chunks.has(this.key(cx+x,cz+z)))jobs.push([cx+x,cz+z]);jobs.sort((a,b)=>(a[0]-cx)**2+(a[1]-cz)**2-(b[0]-cx)**2-(b[1]-cz)**2);this.generationProgress={done:0,total:jobs.length,created:0};try{const concurrency=Math.max(1,Math.min(this.workers.length||1,this.cfg.QUALITY?.tier==='low'?1:2));for(let i=0;i<jobs.length;i+=concurrency){const batch=jobs.slice(i,i+concurrency);await Promise.all(batch.map(([x,z])=>Promise.resolve(this.generateChunk(x,z,true)).then(()=>{this.generationProgress.done++;this.generationProgress.created++}).catch(err=>{this.generationProgress.done++;console.error('Chunk generation failed',x,z,err)})));await new Promise(requestAnimationFrame)}this.unloadFar(cx,cz,r+1);return true}finally{this.generationBusy=false;this.generationProgress=null}}
   generateChunk(cx,cz,useWorker=true){const s=this.cfg.WORLD.CHUNK_SIZE,h=this.cfg.WORLD.HEIGHT;if(useWorker&&this.workers.length){const id=++this.workerSeq,w=this.workers[this.workerCursor++%this.workers.length];return new Promise((resolve,reject)=>{let settled=false;const finishFallback=()=>{if(settled)return;settled=true;this.workerJobs.delete(id);try{const c=this.generateChunk(cx,cz,false);resolve(c)}catch(e){reject(e)}};const timer=setTimeout(finishFallback,3500);this.workerJobs.set(id,{resolve:blocks=>{if(settled)return;settled=true;clearTimeout(timer);const c=new Chunk(cx,cz,s,h);c.blocks.set(blocks);this.applyChanges(c);this.chunks.set(this.key(cx,cz),c);this.queueRebuild(c);this.rebuildAt(cx-1,cz);this.rebuildAt(cx+1,cz);this.rebuildAt(cx,cz-1);this.rebuildAt(cx,cz+1);resolve(c)},reject:()=>{clearTimeout(timer);finishFallback()}});try{w.postMessage({id,seed:this.cfg.WORLD.SEED,cx,cz,size:s,height:h,seaLevel:this.cfg.WORLD.SEA_LEVEL})}catch(e){clearTimeout(timer);finishFallback()}})}
-    const c=new Chunk(cx,cz,s,h);for(let x=0;x<s;x++)for(let z=0;z<s;z++){const wx=cx*s+x,wz=cz*s+z,top=this.gen.height(wx,wz);for(let y=0;y<h;y++)c.set(x,y,z,this.gen.getWithHeight(wx,y,wz,top,this.cfg.WORLD.SEA_LEVEL));if(top>=this.cfg.WORLD.SEA_LEVEL+1){
+    const c=new Chunk(cx,cz,s,h);for(let x=0;x<s;x++)for(let z=0;z<s;z++){const wx=cx*s+x,wz=cz*s+z,top=this.gen.height(wx,wz);for(let y=0;y<h;y++)c.set(x,y,z,this.gen.getWithHeight(wx,y,wz,top,this.cfg.WORLD.SEA_LEVEL));
           this.gen.decorateColumn(wx,wz,top,{getBlock:(a,b,d)=>{const lx=a-cx*s,lz=d-cz*s;return (lx>=0&&lx<s&&lz>=0&&lz<s&&b>=0&&b<h)?c.get(lx,b,lz):BLOCK.AIR},setBlock:(a,b,d,v)=>{const lx=a-cx*s,lz=d-cz*s;if(lx>=0&&lx<s&&lz>=0&&lz<s&&b>=0&&b<h)c.set(lx,b,lz,v)}});
-        } }this.applyChanges(c);this.chunks.set(this.key(cx,cz),c);this.queueRebuild(c);this.rebuildAt(cx-1,cz);this.rebuildAt(cx+1,cz);this.rebuildAt(cx,cz-1);this.rebuildAt(cx,cz+1);return c;}
+        } this.gen.caves.apply(c,cx,cz,s,h);for(const [lx,yy,lz,id] of this.gen.structurePlacements(cx,cz,s,h)){const cur=c.get(lx,yy,lz);if(cur===BLOCK.AIR||cur===BLOCK.GRASS||cur===BLOCK.DIRT||cur===BLOCK.SAND||cur===BLOCK.GRAVEL||id===BLOCK.WATER_L4||id===BLOCK.FARMLAND||id===BLOCK.WHEAT)c.set(lx,yy,lz,id)} }this.applyChanges(c);this.chunks.set(this.key(cx,cz),c);this.queueRebuild(c);this.rebuildAt(cx-1,cz);this.rebuildAt(cx+1,cz);this.rebuildAt(cx,cz-1);this.rebuildAt(cx,cz+1);return c;}
   getBlock(x,y,z){if(y<0||y>=this.cfg.WORLD.HEIGHT)return BLOCK.AIR;const ck=`${x|0},${y|0},${z|0}`;if(this.changes.has(ck))return this.changes.get(ck);const s=this.cfg.WORLD.CHUNK_SIZE,cx=Math.floor(x/s),cz=Math.floor(z/s),c=this.chunks.get(this.key(cx,cz));return c?c.get(((x%s)+s)%s,y,((z%s)+s)%s):BLOCK.AIR}
   setBlock(x,y,z,b){if(y<0||y>=this.cfg.WORLD.HEIGHT)return false;
     const old=this.getBlock(x,y,z), pair=PlantBlock.pair(old); if(pair&&b!==pair&&old!==b){const s0=this.cfg.WORLD.CHUNK_SIZE; if(pair===BLOCK.GRASS_HIGH_TOP)this.setBlock(x,y-1,z,BLOCK.AIR); else if(pair===BLOCK.GRASS_HIGH_BOTTOM)this.setBlock(x,y+1,z,BLOCK.AIR);}const s=this.cfg.WORLD.CHUNK_SIZE,cx=Math.floor(x/s),cz=Math.floor(z/s),c=this.chunks.get(this.key(cx,cz));if(!c)return false;const lx=((x%s)+s)%s,lz=((z%s)+s)%s;c.set(lx,y,lz,b);this.changes.set(`${x|0},${y|0},${z|0}`,b);this.queueRebuild(c);if(lx===0)this.rebuildAt(cx-1,cz);if(lx===s-1)this.rebuildAt(cx+1,cz);if(lz===0)this.rebuildAt(cx,cz-1);if(lz===s-1)this.rebuildAt(cx,cz+1);return true}

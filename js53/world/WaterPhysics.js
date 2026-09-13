@@ -28,7 +28,7 @@ export class WaterPhysics {
       p.air=Math.max(0,(p.air??20)-dt);
       if(p.air<=0){
         this.breathTimer-=dt;
-        if(this.breathTimer<=0){this.breathTimer=1; p.damage(2)}
+        if(this.breathTimer<=0){this.breathTimer=1; p.damage(2);this.game.audio?.drown?.()}
       }
     }else{
       p.air=Math.min(20,(p.air??20)+dt*8);

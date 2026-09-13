@@ -18,7 +18,7 @@ export class MiningSystem{
     const d=getBlockData(hit?.id);if(!hit||!d||d.hardness<0)return false;
     const tool=this.tool(),key=this.targetKeyOf(hit);const targetChanged=key!==this.targetKey||hit.id!==this.targetId||this.toolKey!==this.toolSignature(tool);
     if(targetChanged){this.currentProgress=0;this.crackStage=0;this.targetKey=key;this.targetId=hit.id;this.toolKey=this.toolSignature(tool)}
-    this.held=true;this.show(hit.id);return true;
+    this.held=true;this.show(hit.id);this.game.audio?.blockHit?.(hit.id,new THREE.Vector3(hit.block.x+.5,hit.block.y+.5,hit.block.z+.5));return true;
   }
   toolSignature(t){return `${t.id}:${t.durability}:${t.data?.toolType||"none"}:${t.data?.tier||0}:${t.data?.efficiency||0}:${t.data?.silkTouch||0}:${t.data?.fortune||0}`}
   stop(){this.held=false;this.reset()}
@@ -42,7 +42,7 @@ export class MiningSystem{
     const loot=this.rollLoot(id,tool,canHarvest);for(const x of loot)this.spawnDrop(x.item,x.count,p);
     if(canHarvest&&tool.id&&tool.data?.durabilityDamage){const alive=this.game.inventory.damageMiningTool(tool.data.durabilityDamage);if(!alive)this.game.systems.toast("Инструмент сломан")}
     const d=getBlockData(id),xp=this.randomRange(d?.experienceDrop||[0,0]);if(canHarvest&&!tool.data?.silkTouch&&xp>0){this.game.player.addXP(xp);this.game.systems.award(xp)}
-    this.game.particles.burst(new THREE.Vector3(p.x+.5,p.y+.5,p.z+.5),0xffffff,8);this.game.audio.break?.();
+    this.game.particles.burst(new THREE.Vector3(p.x+.5,p.y+.5,p.z+.5),0xffffff,8);this.game.audio?.blockBreak?.(id,new THREE.Vector3(p.x+.5,p.y+.5,p.z+.5));
     this.reset();this.held=true;
   }
   rollLoot(blockId,tool,canHarvest){
