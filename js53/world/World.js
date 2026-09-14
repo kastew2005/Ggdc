@@ -1,9 +1,10 @@
 import THREE from "../three.js";
-import {Chunk} from "./Chunk.js?v=77.3";
-import {Generator} from "./Generator.js?v=77.3";
-import {BLOCK,INFO} from "./Block.js?v=77.3";
-import {PlantBlock} from "./PlantBlock.js?v=77.3";
+import {Chunk} from "./Chunk.js?v=77.4";
+import {Generator} from "./Generator.js?v=77.4";
+import {BLOCK,INFO} from "./Block.js?v=77.4";
+import {PlantBlock} from "./PlantBlock.js?v=77.4";
 import {GRASS_TEXTURES} from "./GrassTextures.js";
+import {VOXEL_TEXTURES} from "./VoxelTextures.js";
 import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
 
 /*
@@ -59,11 +60,19 @@ export class World{
   imageTexture(path){
     const key='img:'+path;
     if(this._textureCache.has(key)) return this._textureCache.get(key);
-    const src=GRASS_TEXTURES[path];
-    if(!src) return this.texture(path,'#ffffff',null,'noise');
-    const t=new THREE.DataTexture(src.data,src.width,src.height,THREE.RGBAFormat,THREE.UnsignedByteType);
+    const raw=VOXEL_TEXTURES[path] || null;
+    let t;
+    if(raw){
+      const bin=atob(raw), data=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) data[i]=bin.charCodeAt(i);
+      t=new THREE.DataTexture(data,16,16,THREE.RGBAFormat,THREE.UnsignedByteType);
+    }else{
+      const src=GRASS_TEXTURES[path];
+      if(!src) return this.texture(path,'#ffffff',null,'noise');
+      t=new THREE.DataTexture(src.data,src.width,src.height,THREE.RGBAFormat,THREE.UnsignedByteType);
+    }
     t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.generateMipmaps=false;
-    t.wrapS=THREE.ClampToEdgeWrapping;t.wrapT=THREE.ClampToEdgeWrapping;t.flipY=false;
+    t.wrapS=THREE.RepeatWrapping;t.wrapT=THREE.RepeatWrapping;t.flipY=false;
     t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;
     this._textureCache.set(key,t);
     return t;
@@ -73,9 +82,7 @@ export class World{
       grass:['#667c43','#87975a','grass'],dirt:['#76583b',null,'dirt'],stone:['#77756f',null,'stone'],sand:['#c8b78a',null,'sand'],gravel:['#77756f',null,'cobble'],wood_side:['#765b3d',null,'wood'],wood_top:['#9a7a50',null,'wood'],leaves:['#536f3e','#718a52','leaves'],planks:['#92714a',null,'wood'],brick:['#8d5b50',null,'brick'],glass:['#a9c7c7',null,'glass'],water:['#587f91',null,'noise'],coal:['#383a38',null,'ore'],iron:['#77766f','#aaa79b','ore'],copper:['#77746b','#a36f50','ore'],furnace:['#696965',null,'stone'],chest:['#765735',null,'wood'],lantern:['#9b8050','#d0b36d','ore'],campfire:['#875b42','#c18a48','ore'],moss:['#5c7047',null,'grass'],glowstone:['#b4a36a','#d5c78d','ore'],cobble:['#686762',null,'cobble'],snow:['#d7dedb',null,'snow'],clay:['#96786d',null,'dirt'],farmland:['#664c39',null,'dirt'],wheat:['#87905a','#b0a765','grass'],bedrock:['#292a29',null,'cobble'],obsidian:['#292238',null,'noise'],diamond_ore:['#69777f','#55d7e8','ore'],birch_log:['#d7c49b','#6f5a3b','wood'],birch_leaves:['#75944e',null,'leaves'],spruce_log:['#60472e',null,'wood'],spruce_leaves:['#3f603b',null,'leaves'],jungle_log:['#7d4e2c',null,'wood'],jungle_leaves:['#3d823c',null,'leaves'],plant:['#5e963e',null,'grass'],poppy:['#b83d3d',null,'grass'],dandelion:['#e4c33c',null,'grass'],cactus:['#4d913e','#78ad4c','grass'],dead_bush:['#80683c',null,'wood'],vine:['#4c8b3f',null,'grass'],watermelon:['#4d813c','#c6c04d','grass']
     };
     const q=presets[file]||[color,null,'noise'];
-    const map=(file==='grass_top.png'||file==='grass_side.png'||file==='grass_bottom.png')
-      ? this.imageTexture(file)
-      : this.texture(file,q[0],q[1],q[2]);
+    const map=VOXEL_TEXTURES[file] ? this.imageTexture(file) : ((file==='grass_top.png'||file==='grass_side.png'||file==='grass_bottom.png') ? this.imageTexture(file) : this.texture(file,q[0],q[1],q[2]));
     // Stable voxel path: use the native Lambert shader for world chunks.
     // The optional PBR/POM pipeline stays available in the project, but it is
     // not allowed to break the actual terrain render on iOS/WebGL.
@@ -97,7 +104,7 @@ export class World{
     const M={}, add=(id,color,file,opts={})=>{this._materialBlockId=id;M[id]=this.mat(color,file,opts);this._materialBlockId=null};
     // Supplied 16x16 grass atlas: separate top/side/bottom materials.
     this._materialBlockId=BLOCK.GRASS;M.grass_top=this.mat('#ffffff','grass_top.png');M.grass_side=this.mat('#ffffff','grass_side.png');M.grass_bottom=this.mat('#ffffff','grass_bottom.png');this._materialBlockId=null;
-    add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','gravel');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:true,alphaTest:.5,opacity:.96});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','planks');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','birch_leaves',{transparent:true,alphaTest:.5,opacity:.9});
+    add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','gravel');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:false,alphaTest:0,opacity:1});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','planks');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','birch_leaves',{transparent:true,alphaTest:.5,opacity:.9});
     add(BLOCK.SPRUCE_LOG,'#60472e','spruce_log');add(BLOCK.SPRUCE_LEAVES,'#3f603b','spruce_leaves',{transparent:true,alphaTest:.5,opacity:.9});
     add(BLOCK.JUNGLE_LOG,'#7d4e2c','jungle_log');add(BLOCK.JUNGLE_LEAVES,'#3d823c','jungle_leaves',{transparent:true,alphaTest:.5,opacity:.9});
     add(BLOCK.GRASS_LOW,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_BOTTOM,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_TOP,'#5e963e','plant',{transparent:true,opacity:.95});

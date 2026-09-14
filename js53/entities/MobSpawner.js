@@ -1,10 +1,10 @@
-import {BLOCK,INFO} from '../world/Block.js?v=76.6';
+import {BLOCK,INFO} from '../world/Block.js?v=77.4';
 
 /** Chunk-driven passive mob spawner with Minecraft-like distance/cap rules. */
 export class MobSpawner{
  constructor(manager,world,quality={}){this.manager=manager;this.world=world;this.interval=quality.tier==='low'?1.8:1.05;this.timer=0;this.passiveCap=quality.tier==='low'?12:24;this.fishCap=quality.tier==='low'?6:12;this.villageKeys=new Set();}
  isDay(time){const phase=(time%720)/720;return phase>=.25&&phase<=.75}
- distanceOK(x,z,p){const d=Math.hypot(x-p.x,z-p.z);return d>=24&&d<=128}
+ distanceOK(x,z,p){const d=Math.hypot(x-p.x,z-p.z);return d>=10&&d<=128}
  lightAt(x,y,z,time){if(this.isDay(time))return 15;const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);let best=0;for(let dx=-8;dx<=8;dx+=2)for(let dy=-3;dy<=3;dy+=2)for(let dz=-8;dz<=8;dz+=2){const info=INFO[this.world.getBlock(xi+dx,yi+dy,zi+dz)];if(info?.emissive)best=Math.max(best,Number(info.light||0)-Math.hypot(dx,dy,dz)*.7)}return best}
  surface(x,z){const xi=Math.floor(x),zi=Math.floor(z);for(let y=this.world.cfg.WORLD.HEIGHT-2;y>=1;y--){const id=this.world.getBlock(xi,y,zi);if(INFO[id]?.solid)return{y:y+1,block:id}}return null}
  nearbyCount(p,predicate){let n=0;for(const m of this.manager.mobs)if(m.alive&&m.pos.distanceTo(p)<=128&&(!predicate||predicate(m)))n++;return n}
