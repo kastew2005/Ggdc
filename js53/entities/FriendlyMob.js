@@ -1,6 +1,6 @@
 import THREE from '../three.js';
 import {Entity} from './Entity.js';
-import {INFO,ITEM,BLOCK} from '../world/Block.js?v=76.6';
+import {INFO,ITEM,BLOCK} from '../world/Block.js?v=77.7';
 import {MobAI} from './MobAI.js';
 
 const TYPES={

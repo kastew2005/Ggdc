@@ -1,6 +1,6 @@
-import {BLOCK} from './Block.js?v=77.4';
-import {CaveGenerator} from './CaveGenerator.js?v=77.4';
-import {StructureGenerator} from './StructureGenerator.js?v=77.4';
+import {BLOCK} from './Block.js?v=77.7';
+import {CaveGenerator} from './CaveGenerator.js?v=77.7';
+import {StructureGenerator} from './StructureGenerator.js?v=77.7';
 const INFO_WATER=id=>id===BLOCK.WATER||id===BLOCK.WATER_L1||id===BLOCK.WATER_L2||id===BLOCK.WATER_L3||id===BLOCK.WATER_L4;
 
 /** Seeded terrain/biome generator shared by the main thread and worker. */
@@ -16,7 +16,7 @@ export class BiomeGenerator {
   height(x,z){const continental=this.fbm(x*.012,z*.012,4,2,.5),detail=this.fbm(x*.055,z*.055,3,2,.5),ridge=1-Math.abs(this.fbm(x*.022,z*.022,3,2,.55)*2-1);return Math.max(5,Math.min(92,Math.floor(20+(continental-.5)*50+(detail-.5)*12+ridge*38)))}
   biome(x,z,h=this.height(x,z)){const temp=this.fbm(x*.004+41,z*.004-17,4,2,.5),moisture=this.fbm(x*.004-73,z*.004+29,4,2,.5);if(h<=44)return'ocean';if(h<=48)return'beach';if(h>=64)return'mountains';if(temp<.28&&moisture>.48)return'birch_grove';if(temp>.72&&moisture<.38)return'desert';if(temp>.63&&moisture>.67)return'jungle';if(moisture>.57)return'mixed_forest';return'plains'}
   random(x,z,salt=0){let n=(Math.imul(x|0,374761393)+Math.imul(z|0,668265263)+Math.imul((this.seed+salt)|0,1442695041))|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296}
-  treeAllowed(x,z,b){if(!['plains','birch_grove','mixed_forest','jungle'].includes(b))return false;const r=this.random(x,z,900),candidate=b==='jungle'?.12:b==='birch_grove'?.16:b==='mixed_forest'?.11:.035;if(r>=candidate)return false;for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){if(!dx&&!dz)continue;const nb=this.biome(x+dx,z+dz);const nr=this.random(x+dx,z+dz,900),nc=nb==='jungle'?.085:nb==='birch_grove'?.12:nb==='mixed_forest'?.08:.018;if(nr<nc&&nr<r)return false}return true}
+  treeAllowed(x,z,b){if(!['plains','birch_grove','mixed_forest','jungle'].includes(b))return false;const lx=((x%16)+16)%16,lz=((z%16)+16)%16;if(lx<4||lx>11||lz<4||lz>11)return false;const r=this.random(x,z,900),candidate=b==='jungle'?.12:b==='birch_grove'?.16:b==='mixed_forest'?.11:.035;if(r>=candidate)return false;for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){if(!dx&&!dz)continue;const nb=this.biome(x+dx,z+dz);const nr=this.random(x+dx,z+dz,900),nc=nb==='jungle'?.085:nb==='birch_grove'?.12:nb==='mixed_forest'?.08:.018;if(nr<nc&&nr<r)return false}return true}
   get(x,y,z,seaLevel=this.seaLevel){return this.getWithHeight(x,y,z,this.height(x,z),seaLevel)}
   getWithHeight(x,y,z,h,seaLevel=this.seaLevel){const b=this.biome(x,z,h);if(y===0)return BLOCK.BEDROCK;const river=Math.abs(this.fbm(x*.018+91,z*.018-37,3,2,.5)-.5)<.055;const lake=this.fbm(x*.009-121,z*.009+73,3,2,.5)>.77&&h<52;const waterBody=b==='ocean'||(river&&h<=seaLevel+2)||(lake&&h<=seaLevel+1);if(y>h){return y<=seaLevel&&waterBody?BLOCK.WATER_L4:BLOCK.AIR}if(b==='mountains'&&y>=h-2&&h>70)return BLOCK.SNOW;if((b==='desert'||b==='beach'||b==='ocean')&&y>=h-3)return BLOCK.SAND;if(y===h)return BLOCK.GRASS;if(y>h-4)return BLOCK.DIRT;
     // 3D cave field. Below sea level a carved chamber is water-filled; above it is air.
@@ -29,22 +29,23 @@ export class BiomeGenerator {
     if(b==='jungle'&&r<.18){place(0,0,0,BLOCK.WATERMELON);return}if(b==='jungle'&&r<.52){place(0,0,0,BLOCK.VINE);return}if(b==='plains'&&r<.42){place(0,0,0,r<.10?BLOCK.FLOWER_POPPY:r<.20?BLOCK.FLOWER_DANDELION:BLOCK.GRASS_LOW);return}if((b==='plains'||b==='birch_grove')&&r<.58){place(0,0,0,BLOCK.GRASS_HIGH_BOTTOM);place(0,1,0,BLOCK.GRASS_HIGH_TOP);return}if(b==='mixed_forest'&&r<.45)place(0,0,0,BLOCK.GRASS_LOW)
   }
   tree(x,y,z,api,type='oak'){
-    const spec={oak:[BLOCK.LOG,BLOCK.LEAVES,6],birch:[BLOCK.BIRCH_LOG,BLOCK.BIRCH_LEAVES,6],spruce:[BLOCK.SPRUCE_LOG,BLOCK.SPRUCE_LEAVES,8],jungle:[BLOCK.JUNGLE_LOG,BLOCK.JUNGLE_LEAVES,9]}[type]||[BLOCK.LOG,BLOCK.LEAVES,6];
+    const spec={oak:[BLOCK.LOG,BLOCK.LEAVES,6],birch:[BLOCK.BIRCH_LOG,BLOCK.BIRCH_LEAVES,6],spruce:[BLOCK.SPRUCE_LOG,BLOCK.SPRUCE_LEAVES,9],jungle:[BLOCK.JUNGLE_LOG,BLOCK.JUNGLE_LEAVES,10]}[type]||[BLOCK.LOG,BLOCK.LEAVES,6];
     const[log,leaf,h]=spec;
-    for(let i=0;i<h;i++)api.setBlock(x,y+i,z,log);
-    const radius=type==='spruce'?2:3;
-    // Full layered canopy: a broad lower crown, smaller upper crown and a visible cap.
-    for(let dy=1;dy<=4;dy++){
-      const layer=dy===1?radius:dy===2?radius:dy===3?Math.max(1,radius-1):1;
-      for(let dx=-layer;dx<=layer;dx++)for(let dz=-layer;dz<=layer;dz++){
-        const dist=Math.abs(dx)+Math.abs(dz);
-        if(dist<=layer+1 && api.getBlock?.(x+dx,y+h-4+dy,z+dz)===BLOCK.AIR)api.setBlock(x+dx,y+h-4+dy,z+dz,leaf);
-      }
-    }
-    // Always put a leaf cap above the trunk so trees never end as bare poles.
-    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)if(api.getBlock?.(x+dx,y+h,z+dz)===BLOCK.AIR)api.setBlock(x+dx,y+h,z+dz,leaf);
-    if(type==='jungle')for(let i=1;i<h-1;i++)if(this.random(x+i,z-i,970)<.45)api.setBlock(x+1,y+i,z,BLOCK.VINE);
+    const set=(xx,yy,zz,id)=>{if(yy>=1&&yy<94&&api.getBlock?.(xx,yy,zz)===BLOCK.AIR)api.setBlock(xx,yy,zz,id)};
+    for(let i=0;i<h;i++)set(x,y+i,z,log);
+    // Dense, symmetric crowns. The final cap is deliberately above the trunk
+    // so the tree always has a visible top even from a low third-person camera.
+    const layers=type==='spruce' ? [[2,0],[2,1],[2,2],[2,3],[1,4],[1,5],[1,6],[0,7]]
+      : type==='jungle' ? [[3,0],[3,1],[3,2],[2,3],[2,4],[2,5],[1,6],[1,7],[0,8]]
+      : [[3,0],[3,1],[3,2],[2,3],[2,4],[1,5],[1,6],[0,7]];
+    for(const [radius,offset] of layers){const yy=y+h-5+offset;for(let dx=-radius;dx<=radius;dx++)for(let dz=-radius;dz<=radius;dz++)if(Math.abs(dx)+Math.abs(dz)<=radius+1)set(x+dx,yy,z+dz,leaf)}
+    // Full 3x3 crown cap at the highest point.
+    const topY=y+h+2;
+    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)set(x+dx,topY,z+dz,leaf);
+    if(type==='spruce')for(let i=1;i<h-1;i++)if(this.random(x+i,z-i,970)<.55)set(x+1,y+i,z,BLOCK.VINE);
+    if(type==='jungle')for(let i=1;i<h-1;i++)if(this.random(x+i,z-i,971)<.65)set(x+1,y+i,z,BLOCK.VINE);
   }
+
   decorateUnderground(chunk,cx,cz,size,height){this.caves.apply(chunk,cx,cz,size,height)}
   structurePlacements(cx,cz,size,height){return this.structures.placementsForChunk(cx,cz,size,height)}
 }

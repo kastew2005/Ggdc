@@ -1,6 +1,6 @@
 import THREE from '../three.js';
 import {Entity} from './Entity.js';
-import {INFO,BLOCK} from '../world/Block.js?v=76.6';
+import {INFO,BLOCK} from '../world/Block.js?v=77.7';
 export class Villager extends Entity{
  constructor(scene,world,x,y,z){super(x,y,z);this.world=world;this.type='villager';this.health=20;this.timer=0;this.dir=new THREE.Vector3();this.group=new THREE.Group();const skin=new THREE.MeshLambertMaterial({color:0xb98262}),robe=new THREE.MeshLambertMaterial({color:0x4d7567}),shoe=new THREE.MeshLambertMaterial({color:0x3b342e});const head=new THREE.Mesh(new THREE.BoxGeometry(.55,.65,.55),skin);head.position.y=1.55;const body=new THREE.Mesh(new THREE.BoxGeometry(.62,.85,.4),robe);body.position.y=.85;const nose=new THREE.Mesh(new THREE.BoxGeometry(.12,.22,.18),skin);nose.position.set(0,1.48,-.34);for(const sx of [-.18,.18]){const leg=new THREE.Mesh(new THREE.BoxGeometry(.18,.55,.18),shoe);leg.position.set(sx,.2,0);this.group.add(leg)}this.group.add(head,body,nose);this.group.position.copy(this.pos);scene.add(this.group)}
  solid(x,y,z){return !!INFO[this.world.getBlock(Math.floor(x),Math.floor(y),Math.floor(z))]?.solid}

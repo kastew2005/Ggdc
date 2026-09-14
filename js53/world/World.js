@@ -1,8 +1,8 @@
 import THREE from "../three.js";
-import {Chunk} from "./Chunk.js?v=77.4";
-import {Generator} from "./Generator.js?v=77.4";
-import {BLOCK,INFO} from "./Block.js?v=77.4";
-import {PlantBlock} from "./PlantBlock.js?v=77.4";
+import {Chunk} from "./Chunk.js?v=77.7";
+import {Generator} from "./Generator.js?v=77.7";
+import {BLOCK,INFO} from "./Block.js?v=77.7";
+import {PlantBlock} from "./PlantBlock.js?v=77.7";
 import {GRASS_TEXTURES} from "./GrassTextures.js";
 import {VOXEL_TEXTURES} from "./VoxelTextures.js";
 import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
@@ -30,7 +30,7 @@ export class World{
   // This avoids Safari/GitHub Pages image-decoding failures entirely.
   texture(file,base,accent=null,kind='noise'){
     if(this._textureCache.has(file)) return this._textureCache.get(file);
-    const size=64,data=new Uint8Array(size*size*4);let seed=0;
+    const size=16,data=new Uint8Array(size*size*4);let seed=0;
     for(let i=0;i<file.length;i++)seed=(seed*31+file.charCodeAt(i))|0;
     const rnd=()=>{seed|=0;seed=(seed*1664525+1013904223)|0;return (seed>>>0)/4294967296};
     const hex=v=>{v=v.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]};
@@ -38,7 +38,7 @@ export class World{
     // Classic voxel texture language: muted palette, hard pixel clusters, almost no gradients.
     const patch=new Int8Array(16*16);for(let py=0;py<16;py++)for(let px=0;px<16;px++)patch[py*16+px]=Math.round((rnd()-.5)*16);
     for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-      const i=(y*size+x)*4,px=x>>2,py=y>>2;let v=patch[py*16+px],r=b[0]+v,g=b[1]+v,bl=b[2]+v;
+      const i=(y*size+x)*4,px=x,py=y;let v=patch[py*16+px],r=b[0]+v,g=b[1]+v,bl=b[2]+v;
       if(kind==='grass'){if(y<10){r-=4;g+=8;bl-=2}if(rnd()<.035){r+=10;g+=13;bl+=4}}
       if(kind==='dirt'){if(rnd()<.045){r-=14;g-=9;bl-=5}}
       if(kind==='stone'){if(rnd()<.04){r+=12;g+=11;bl+=9}if(rnd()<.02){r-=14;g-=13;bl-=11}}
@@ -79,7 +79,7 @@ export class World{
   }
   mat(color,file,opts={}){
     const presets={
-      grass:['#667c43','#87975a','grass'],dirt:['#76583b',null,'dirt'],stone:['#77756f',null,'stone'],sand:['#c8b78a',null,'sand'],gravel:['#77756f',null,'cobble'],wood_side:['#765b3d',null,'wood'],wood_top:['#9a7a50',null,'wood'],leaves:['#536f3e','#718a52','leaves'],planks:['#92714a',null,'wood'],brick:['#8d5b50',null,'brick'],glass:['#a9c7c7',null,'glass'],water:['#587f91',null,'noise'],coal:['#383a38',null,'ore'],iron:['#77766f','#aaa79b','ore'],copper:['#77746b','#a36f50','ore'],furnace:['#696965',null,'stone'],chest:['#765735',null,'wood'],lantern:['#9b8050','#d0b36d','ore'],campfire:['#875b42','#c18a48','ore'],moss:['#5c7047',null,'grass'],glowstone:['#b4a36a','#d5c78d','ore'],cobble:['#686762',null,'cobble'],snow:['#d7dedb',null,'snow'],clay:['#96786d',null,'dirt'],farmland:['#664c39',null,'dirt'],wheat:['#87905a','#b0a765','grass'],bedrock:['#292a29',null,'cobble'],obsidian:['#292238',null,'noise'],diamond_ore:['#69777f','#55d7e8','ore'],birch_log:['#d7c49b','#6f5a3b','wood'],birch_leaves:['#75944e',null,'leaves'],spruce_log:['#60472e',null,'wood'],spruce_leaves:['#3f603b',null,'leaves'],jungle_log:['#7d4e2c',null,'wood'],jungle_leaves:['#3d823c',null,'leaves'],plant:['#5e963e',null,'grass'],poppy:['#b83d3d',null,'grass'],dandelion:['#e4c33c',null,'grass'],cactus:['#4d913e','#78ad4c','grass'],dead_bush:['#80683c',null,'wood'],vine:['#4c8b3f',null,'grass'],watermelon:['#4d813c','#c6c04d','grass']
+      grass:['#667c43','#87975a','grass'],dirt:['#76583b',null,'dirt'],stone:['#77756f',null,'stone'],sand:['#c8b78a',null,'sand'],gravel:['#77756f',null,'cobble'],wood_side:['#765b3d',null,'wood'],wood_top:['#9a7a50',null,'wood'],leaves:['#536f3e','#718a52','leaves'],planks:['#92714a',null,'wood'],brick:['#8d5b50',null,'brick'],glass:['#a9c7c7',null,'glass'],water:['#587f91',null,'noise'],coal:['#383a38',null,'ore'],iron:['#77766f','#aaa79b','ore'],copper:['#77746b','#a36f50','ore'],furnace:['#696965',null,'stone'],chest:['#765735',null,'wood'],lantern:['#9b8050','#d0b36d','ore'],campfire:['#875b42','#c18a48','ore'],moss:['#5c7047',null,'grass'],glowstone:['#b4a36a','#d5c78d','ore'],cobble:['#686762',null,'cobble'],snow:['#d7dedb',null,'snow'],clay:['#96786d',null,'dirt'],farmland:['#664c39',null,'dirt'],wheat:['#87905a','#b0a765','grass'],bedrock:['#292a29',null,'cobble'],obsidian:['#292238',null,'noise'],diamond_ore:['#69777f','#55d7e8','ore'],gold_ore:['#7a7468','#e2b83e','ore'],birch_log:['#d7c49b','#6f5a3b','wood'],birch_leaves:['#75944e',null,'leaves'],spruce_log:['#60472e',null,'wood'],spruce_leaves:['#3f603b',null,'leaves'],jungle_log:['#7d4e2c',null,'wood'],jungle_leaves:['#3d823c',null,'leaves'],plant:['#5e963e',null,'grass'],poppy:['#b83d3d',null,'grass'],dandelion:['#e4c33c',null,'grass'],cactus:['#4d913e','#78ad4c','grass'],dead_bush:['#80683c',null,'wood'],vine:['#4c8b3f',null,'grass'],watermelon:['#4d813c','#c6c04d','grass']
     };
     const q=presets[file]||[color,null,'noise'];
     const map=VOXEL_TEXTURES[file] ? this.imageTexture(file) : ((file==='grass_top.png'||file==='grass_side.png'||file==='grass_bottom.png') ? this.imageTexture(file) : this.texture(file,q[0],q[1],q[2]));
@@ -104,13 +104,13 @@ export class World{
     const M={}, add=(id,color,file,opts={})=>{this._materialBlockId=id;M[id]=this.mat(color,file,opts);this._materialBlockId=null};
     // Supplied 16x16 grass atlas: separate top/side/bottom materials.
     this._materialBlockId=BLOCK.GRASS;M.grass_top=this.mat('#ffffff','grass_top.png');M.grass_side=this.mat('#ffffff','grass_side.png');M.grass_bottom=this.mat('#ffffff','grass_bottom.png');this._materialBlockId=null;
-    add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','gravel');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:false,alphaTest:0,opacity:1});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','planks');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','birch_leaves',{transparent:true,alphaTest:.5,opacity:.9});
-    add(BLOCK.SPRUCE_LOG,'#60472e','spruce_log');add(BLOCK.SPRUCE_LEAVES,'#3f603b','spruce_leaves',{transparent:true,alphaTest:.5,opacity:.9});
-    add(BLOCK.JUNGLE_LOG,'#7d4e2c','jungle_log');add(BLOCK.JUNGLE_LEAVES,'#3d823c','jungle_leaves',{transparent:true,alphaTest:.5,opacity:.9});
+    add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','gravel');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:true,alphaTest:.18,opacity:1,depthWrite:true});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','planks');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','birch_leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
+    add(BLOCK.SPRUCE_LOG,'#60472e','spruce_log');add(BLOCK.SPRUCE_LEAVES,'#3f603b','spruce_leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
+    add(BLOCK.JUNGLE_LOG,'#7d4e2c','jungle_log');add(BLOCK.JUNGLE_LEAVES,'#3d823c','jungle_leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
     add(BLOCK.GRASS_LOW,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_BOTTOM,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_TOP,'#5e963e','plant',{transparent:true,opacity:.95});
     add(BLOCK.FLOWER_POPPY,'#b83d3d','poppy',{transparent:true,opacity:.95});add(BLOCK.FLOWER_DANDELION,'#e4c33c','dandelion',{transparent:true,opacity:.95});
     add(BLOCK.CACTUS,'#4d913e','cactus');add(BLOCK.DEAD_BUSH,'#80683c','dead_bush',{transparent:true,opacity:.95});add(BLOCK.VINE,'#4c8b3f','vine',{transparent:true,opacity:.95});add(BLOCK.WATERMELON,'#4d813c','watermelon');
-    add(BLOCK.GOLD_ORE,'#7a7468','ore');add(BLOCK.SEAGRASS,'#3f8d55','plant',{transparent:true,opacity:.9});add(BLOCK.KELP,'#2f7048','plant',{transparent:true,opacity:.9});
+    add(BLOCK.GOLD_ORE,'#7a7468','gold_ore');add(BLOCK.TORCH,'#d99b3b','lantern',{transparent:true,opacity:.95});add(BLOCK.SEAGRASS,'#3f8d55','plant',{transparent:true,opacity:.9});add(BLOCK.KELP,'#2f7048','plant',{transparent:true,opacity:.9});
     for(const id of [BLOCK.WATER_L1,BLOCK.WATER_L2,BLOCK.WATER_L3,BLOCK.WATER_L4])add(id,'#3973c9','water',{transparent:true,opacity:.52});
     return M;
   }
@@ -291,6 +291,38 @@ export class World{
     this.rebuildAt(cx,cz+1);
     return c;
   }
+  ensureNearbyVillage(px,pz){
+    if(this._nearbyVillageEnsured)return false;
+    const s=this.cfg.WORLD.CHUNK_SIZE;
+    const pcx=Math.floor(px/s),pcz=Math.floor(pz/s);
+    let best=null,bestD=1e9;
+    for(let cx=pcx-5;cx<=pcx+5;cx++)for(let cz=pcz-5;cz<=pcz+5;cz++){
+      if(!this.chunks.has(this.key(cx,cz)))continue;
+      if(!this.gen.structures.flat(cx,cz,8))continue;
+      const d=(cx-pcx)*(cx-pcx)+(cz-pcz)*(cz-pcz);
+      if(d<bestD){bestD=d;best=[cx,cz];}
+    }
+    if(!best)return false;
+    const [cx,cz]=best;
+    const village=this.gen.structures.forceVillage(cx,cz);
+    const chunk=this.chunks.get(this.key(cx,cz));
+    if(!village||!chunk)return false;
+    let changed=false;
+    for(const [x,y,z,id] of village){
+      const lx=x-cx*s,lz=z-cz*s;
+      if(lx<0||lx>=s||lz<0||lz>=s||y<0||y>=chunk.height)continue;
+      const cur=chunk.get(lx,y,lz);
+      if(cur===BLOCK.AIR||cur===BLOCK.GRASS||cur===BLOCK.DIRT||cur===BLOCK.SAND||cur===BLOCK.GRAVEL||id===BLOCK.WATER_L4||id===BLOCK.FARMLAND||id===BLOCK.WHEAT){chunk.set(lx,y,lz,id);changed=true;}
+    }
+    if(changed){
+      this._nearbyVillageEnsured=this.key(cx,cz);
+      this.queueRebuild(chunk);
+      this.rebuildAt(cx-1,cz);this.rebuildAt(cx+1,cz);this.rebuildAt(cx,cz-1);this.rebuildAt(cx,cz+1);
+      return true;
+    }
+    return false;
+  }
+
   getBlock(x,y,z){if(y<0||y>=this.cfg.WORLD.HEIGHT)return BLOCK.AIR;const ck=`${x|0},${y|0},${z|0}`;if(this.changes.has(ck))return this.changes.get(ck);const s=this.cfg.WORLD.CHUNK_SIZE,cx=Math.floor(x/s),cz=Math.floor(z/s),c=this.chunks.get(this.key(cx,cz));return c?c.get(((x%s)+s)%s,y,((z%s)+s)%s):BLOCK.AIR}
   setBlock(x,y,z,b){if(y<0||y>=this.cfg.WORLD.HEIGHT)return false;
     const old=this.getBlock(x,y,z), pair=PlantBlock.pair(old); if(pair&&b!==pair&&old!==b){const s0=this.cfg.WORLD.CHUNK_SIZE; if(pair===BLOCK.GRASS_HIGH_TOP)this.setBlock(x,y-1,z,BLOCK.AIR); else if(pair===BLOCK.GRASS_HIGH_BOTTOM)this.setBlock(x,y+1,z,BLOCK.AIR);}const s=this.cfg.WORLD.CHUNK_SIZE,cx=Math.floor(x/s),cz=Math.floor(z/s),c=this.chunks.get(this.key(cx,cz));if(!c)return false;const lx=((x%s)+s)%s,lz=((z%s)+s)%s;c.set(lx,y,lz,b);this.changes.set(`${x|0},${y|0},${z|0}`,b);this.queueRebuild(c);if(lx===0)this.rebuildAt(cx-1,cz);if(lx===s-1)this.rebuildAt(cx+1,cz);if(lz===0)this.rebuildAt(cx,cz-1);if(lz===s-1)this.rebuildAt(cx,cz+1);return true}
@@ -373,7 +405,7 @@ export class World{
       const base=b.p.length/3,w=.42,h=INFO[id]?.waterLevel?1:1;
       const quads=[[[x+.5-w,y,z+.5-w],[x+.5+w,y,z+.5+w],[x+.5+w,y+h,z+.5+w],[x+.5-w,y+h,z+.5-w]],
                    [[x+.5-w,y,z+.5+w],[x+.5+w,y,z+.5-w],[x+.5+w,y+h,z+.5-w],[x+.5-w,y+h,z+.5+w]]];
-      for(const qd of quads){const b0=b.p.length/3;for(const v of qd){b.p.push(...v);b.n.push(0,1,0);b.u.push(0,0)}b.i.push(b0,b0+1,b0+2,b0,b0+2,b0+3)}
+      for(const qd of quads){const b0=b.p.length/3;const tuv=[[0,0],[1,0],[1,1],[0,1]];for(let qi=0;qi<qd.length;qi++){b.p.push(...qd[qi]);b.n.push(0,1,0);b.u.push(...tuv[qi])}b.i.push(b0,b0+1,b0+2,b0,b0+2,b0+3)}
     };
 
     // Find the highest non-air block per column first. Most of the 96-high
@@ -439,7 +471,7 @@ export class World{
     }
     this.scene.add(group);this.starterVisual=group;
   }
-  removeStarterVisual(){if(!this.starterVisual)return;this.scene.remove(this.starterVisual);this.starterVisual.traverse(o=>{if(o.geometry?.dispose&&o.userData?.starter)o.geometry=null});this.starterVisual=null}
+  removeStarterVisual(){if(!this.starterVisual)return;const g=this.starterVisual;this.scene.remove(g);const geometries=new Set();g.traverse(o=>{if(o.userData?.starter&&o.geometry)geometries.add(o.geometry)});for(const geo of geometries)geo.dispose?.();g.traverse(o=>{if(o.userData?.starter)o.geometry=null});this.starterVisual=null}
 
   unloadFar(cx,cz,r){for(const [k,g] of this.meshes){const [x,z]=k.split(",").map(Number);if(Math.max(Math.abs(x-cx),Math.abs(z-cz))>r){this.scene.remove(g);g.traverse(o=>{if(o.geometry)o.geometry.dispose()});this.meshes.delete(k);this.meshQueued.delete(k);this.chunks.delete(k)}}}
   loadChanges(list){this.changes.clear();for(const x of list||[]){if(Array.isArray(x)&&x.length>=4)this.changes.set(`${x[0]|0},${x[1]|0},${x[2]|0}`,x[3]|0)}}
