@@ -9,5 +9,5 @@ V11 audit / stability pass
 - Villagers no longer get blocked by the passive mob cap / 10-block proximity rule.
 - Village forcing accepts broader flat sites and uses a common village level.
 - Nearby village search expanded and retried after startup.
-- Unified JS cache-busting to 77.7.
+- Unified JS cache-busting to 78.0.
 - Fixed starter visual geometry disposal and added a chunk-mesh watchdog.
