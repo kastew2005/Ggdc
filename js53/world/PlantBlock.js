@@ -1,4 +1,4 @@
-import {BLOCK} from './Block.js?v=77.7';
+import {BLOCK} from './Block.js?v=78.0';
 
 /** Shared metadata for non-solid flora. Rendering is batched by the World chunk builder. */
 export class PlantBlock {

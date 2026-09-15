@@ -1,4 +1,4 @@
-import {BLOCK} from './Block.js?v=77.7';
+import {BLOCK} from './Block.js?v=78.0';
 
 export class StructureGenerator {
   constructor(generator){this.gen=generator;this.forced=new Set();}

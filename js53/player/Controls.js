@@ -1,6 +1,6 @@
 export class Controls{
-constructor(camera,dom){
-  this.camera=camera;this.dom=dom;this.keys={};this.yaw=0;this.pitch=0;
+constructor(camera,dom,inputFilter=null){
+  this.camera=camera;this.dom=dom;this.inputFilter=inputFilter;this.keys={};this.yaw=0;this.pitch=0;
   this.sensitivity=.0065;
   this.touchSensitivity=.0058;
   this.touchPitchSensitivity=.0054;
@@ -15,17 +15,16 @@ constructor(camera,dom){
   const isTouchLook=e=>e.pointerType==="touch"&&!e.target?.closest?.("#mobileControls,#hotbar,#pauseGameButton,.screen,.debugScreen,#controlsEditor");
   dom.addEventListener("pointerdown",e=>{
     if(e.pointerType!=="touch"||!isTouchLook(e)||this.lookPointerId!==null)return;
-    this.lookPointerId=e.pointerId;this.lastX=e.clientX;this.lastY=e.clientY;
+    this.lookPointerId=e.pointerId;this.lastX=e.clientX;this.lastY=e.clientY;this.lookDragging=false;this.inputFilter?.begin(e,"camera");
     try{dom.setPointerCapture(e.pointerId)}catch{}
     e.preventDefault();
   },{passive:false});
   dom.addEventListener("pointermove",e=>{
     if(e.pointerType!=="touch"||e.pointerId!==this.lookPointerId)return;
-    const dx=e.clientX-this.lastX,dy=e.clientY-this.lastY;this.lastX=e.clientX;this.lastY=e.clientY;
-    this.applyLook(dx,dy,this.touchSensitivity,this.touchPitchSensitivity);e.preventDefault();
+    const dx=e.clientX-this.lastX,dy=e.clientY-this.lastY;const dragged=this.inputFilter?.move(e,"camera")??(Math.hypot(e.clientX-this.lastX,e.clientY-this.lastY)>14);this.lastX=e.clientX;this.lastY=e.clientY;if(!this.lookDragging && !dragged)return;this.lookDragging=true;this.applyLook(dx,dy,this.touchSensitivity,this.touchPitchSensitivity);e.preventDefault();
   },{passive:false});
-  const end=e=>{if(e.pointerId!==this.lookPointerId)return;this.lookPointerId=null;try{dom.releasePointerCapture(e.pointerId)}catch{}};
-  dom.addEventListener("pointerup",end,{passive:true});dom.addEventListener("pointercancel",end,{passive:true});dom.addEventListener("lostpointercapture",()=>{this.lookPointerId=null},{passive:true});
+  const end=e=>{if(e.pointerId!==this.lookPointerId)return;this.inputFilter?.end(e,"camera");this.lookPointerId=null;this.lookDragging=false;try{dom.releasePointerCapture(e.pointerId)}catch{}};
+  dom.addEventListener("pointerup",end,{passive:true});dom.addEventListener("pointercancel",end,{passive:true});dom.addEventListener("lostpointercapture",e=>{if(this.lookPointerId!==null)this.inputFilter?.cancel(e,"camera");this.lookPointerId=null;this.lookDragging=false},{passive:true});
   addEventListener("blur",()=>{this.lookPointerId=null;for(const k of Object.keys(this.keys))this.keys[k]=false},{passive:true});
 }
 applyLook(dx,dy,yawSensitivity,pitchSensitivity){

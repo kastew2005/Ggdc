@@ -1,7 +1,8 @@
 import THREE from '../three.js';
 import {Entity} from './Entity.js';
-import {INFO,ITEM,BLOCK} from '../world/Block.js?v=77.7';
+import {INFO,ITEM,BLOCK} from '../world/Block.js?v=78.0';
 import {MobAI} from './MobAI.js';
+import {mobMaterials,mobTexture} from './MobTextureFactory.js';
 
 const TYPES={
   chicken:{health:4,speed:1.4,body:0xffffff,accent:0xd9d9d9,drop:[[ITEM.FEATHER,1,3],[ITEM.RAW_CHICKEN,1,2]]},
@@ -18,18 +19,18 @@ export class FriendlyMob extends Entity {
   }
   buildModel(){
     const d=this.data,mat=new THREE.MeshLambertMaterial({color:d.body}),accent=new THREE.MeshLambertMaterial({color:d.accent});
-    const body=new THREE.Mesh(new THREE.BoxGeometry(.8,.65,1.05),mat);body.position.y=.95;
-    const head=new THREE.Mesh(new THREE.BoxGeometry(.58,.58,.58),accent);head.position.set(0,1.35,-.62);
+    const body=new THREE.Mesh(new THREE.BoxGeometry(.8,.65,1.05),mobMaterials(this.type,'body'));body.position.y=.95;
+    const head=new THREE.Mesh(new THREE.BoxGeometry(.58,.58,.58),mobMaterials(this.type,'head'));head.position.set(0,1.35,-.62);
     this.group.add(body,head);
     for(const sx of [-.28,.28])for(const sz of [-.35,.35]){
-      const leg=new THREE.Mesh(new THREE.BoxGeometry(.18,.65,.18),mat);leg.position.set(sx,.42,sz);this.group.add(leg);
+      const leg=new THREE.Mesh(new THREE.BoxGeometry(.18,.65,.18),mobMaterials(this.type,'leg'));leg.position.set(sx,.42,sz);this.group.add(leg);
     }
     if(this.type==='cow'||this.type==='sheep'){
       const hornMat=new THREE.MeshLambertMaterial({color:0xeee8d8});
       if(this.type==='cow'){for(const sx of [-.22,.22]){const h=new THREE.Mesh(new THREE.BoxGeometry(.11,.2,.11),hornMat);h.position.set(sx,1.7,-.62);this.group.add(h)}}
     }
     if(this.type==='chicken'){
-      const beak=new THREE.Mesh(new THREE.BoxGeometry(.18,.12,.2),new THREE.MeshLambertMaterial({color:0xe5a32a}));beak.position.set(0,1.35,-.92);this.group.add(beak);
+      const beak=new THREE.Mesh(new THREE.BoxGeometry(.18,.12,.2),new THREE.MeshLambertMaterial({map:mobTexture('chicken','beak')}));beak.position.set(0,1.35,-.92);this.group.add(beak);
     }
     this.group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
   }

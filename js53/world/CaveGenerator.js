@@ -1,4 +1,4 @@
-import {BLOCK} from './Block.js?v=77.7';
+import {BLOCK} from './Block.js?v=78.0';
 
 /**
  * Deterministic 3D cave + ore pass. It only writes into the current chunk,

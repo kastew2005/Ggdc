@@ -1,6 +1,6 @@
-import {BLOCK} from './Block.js?v=77.7';
-import {CaveGenerator} from './CaveGenerator.js?v=77.7';
-import {StructureGenerator} from './StructureGenerator.js?v=77.7';
+import {BLOCK} from './Block.js?v=78.0';
+import {CaveGenerator} from './CaveGenerator.js?v=78.0';
+import {StructureGenerator} from './StructureGenerator.js?v=78.0';
 const INFO_WATER=id=>id===BLOCK.WATER||id===BLOCK.WATER_L1||id===BLOCK.WATER_L2||id===BLOCK.WATER_L3||id===BLOCK.WATER_L4;
 
 /** Seeded terrain/biome generator shared by the main thread and worker. */

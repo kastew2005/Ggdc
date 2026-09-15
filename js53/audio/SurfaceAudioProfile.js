@@ -1,4 +1,4 @@
-import {BLOCK} from '../world/Block.js?v=77.7';
+import {BLOCK} from '../world/Block.js?v=78.0';
 
 /** Data-driven mapping from voxel blocks to surface sound families. */
 export class SurfaceAudioProfile{

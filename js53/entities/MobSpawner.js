@@ -1,4 +1,4 @@
-import {BLOCK,INFO} from '../world/Block.js?v=77.7';
+import {BLOCK,INFO} from '../world/Block.js?v=78.0';
 
 /** Chunk-driven passive mob spawner with Minecraft-like distance/cap rules. */
 export class MobSpawner{

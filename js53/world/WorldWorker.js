@@ -1,5 +1,5 @@
-import {Generator} from './Generator.js?v=77.7';
-import {BLOCK} from './Block.js?v=77.7';
+import {Generator} from './Generator.js?v=78.0';
+import {BLOCK} from './Block.js?v=78.0';
 
 self.onmessage = (e) => {
   const {id, seed, cx, cz, size, height, seaLevel} = e.data;

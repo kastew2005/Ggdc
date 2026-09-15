@@ -1,6 +1,6 @@
 import THREE from '../three.js';
 import {Entity} from './Entity.js';
-import {BLOCK,ITEM,INFO} from '../world/Block.js?v=77.7';
+import {BLOCK,ITEM,INFO} from '../world/Block.js?v=78.0';
 import {FishAI} from './FishAI.js';
 const DATA={cod:{health:3,speed:1.5,body:0x718c8f,accent:0xd7e0dc,drop:ITEM.RAW_COD},salmon:{health:3,speed:1.7,body:0xd87562,accent:0xe8b0a0,drop:ITEM.RAW_SALMON}};
 export class Fish extends Entity{

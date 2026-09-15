@@ -1,4 +1,4 @@
-import {BLOCK,INFO} from '../world/Block.js?v=77.7';
+import {BLOCK,INFO} from '../world/Block.js?v=78.0';
 import {SoundPool} from './SoundPool.js';
 import {profileForBlock} from './SurfaceAudioProfile.js';
 

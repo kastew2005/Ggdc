@@ -1,11 +1,12 @@
 import THREE from "../three.js";
-import {Chunk} from "./Chunk.js?v=77.7";
-import {Generator} from "./Generator.js?v=77.7";
-import {BLOCK,INFO} from "./Block.js?v=77.7";
-import {PlantBlock} from "./PlantBlock.js?v=77.7";
+import {Chunk} from "./Chunk.js?v=78.0";
+import {Generator} from "./Generator.js?v=78.0";
+import {BLOCK,INFO} from "./Block.js?v=78.0";
+import {PlantBlock} from "./PlantBlock.js?v=78.0";
 import {GRASS_TEXTURES} from "./GrassTextures.js";
 import {VOXEL_TEXTURES} from "./VoxelTextures.js";
 import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
+import {PixelMaterialFactory64} from "../rendering/PixelMaterialFactory64.js";
 
 /*
  * Voxel Survival Universe 43
@@ -20,41 +21,16 @@ export class World{
     this.scene=scene;this.cfg=cfg;this.chunks=new Map();this.meshes=new Map();
     this.gen=new Generator(cfg.WORLD.SEED);this.generationBusy=false;this.lastCenter="";
     this.changes=new Map();this._textureCache=new Map();
-    this.pbr=new PBRMaterialFactory(cfg,this);this.materials=this.makeMaterials();this.workers=[];this.workerSeq=0;this.workerJobs=new Map();this.workerCursor=0;
+    this.pbr=new PBRMaterialFactory(cfg,this);this.pixel64=new PixelMaterialFactory64();this.materials=this.makeMaterials();this.workers=[];this.workerSeq=0;this.workerJobs=new Map();this.workerCursor=0;
     this.meshQueue=[];this.meshQueued=new Set();this.meshBuilding=false;this.workerStarted=false;this.starterVisual=null;
   }
   initWorker(){if(this.workerStarted)return;this.workerStarted=true;try{const cores=navigator.hardwareConcurrency||2;const count=Math.max(1,Math.min(2,cores>4?2:1));for(let i=0;i<count;i++){const w=new Worker(new URL("./WorldWorker.js",import.meta.url),{type:"module"});w.onmessage=e=>{const job=this.workerJobs.get(e.data.id);if(!job)return;this.workerJobs.delete(e.data.id);if(e.data.error)job.reject(new Error(e.data.error));else job.resolve(new Uint8Array(e.data.buffer));};w.onerror=e=>{console.warn("World worker:",e.message);for(const [id,job] of this.workerJobs){job.reject(new Error("Worker failed"));this.workerJobs.delete(id)}};this.workers.push(w)}}catch(e){this.workers=[]}}
   key(x,z){return `${x},${z}`}
 
-  // Guaranteed local 64x64 voxel textures.  No image/CDN is required for the world.
-  // This avoids Safari/GitHub Pages image-decoding failures entirely.
-  texture(file,base,accent=null,kind='noise'){
-    if(this._textureCache.has(file)) return this._textureCache.get(file);
-    const size=16,data=new Uint8Array(size*size*4);let seed=0;
-    for(let i=0;i<file.length;i++)seed=(seed*31+file.charCodeAt(i))|0;
-    const rnd=()=>{seed|=0;seed=(seed*1664525+1013904223)|0;return (seed>>>0)/4294967296};
-    const hex=v=>{v=v.replace('#','');return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16),parseInt(v.slice(4,6),16)]};
-    const b=hex(base),a=accent?hex(accent):null;
-    // Classic voxel texture language: muted palette, hard pixel clusters, almost no gradients.
-    const patch=new Int8Array(16*16);for(let py=0;py<16;py++)for(let px=0;px<16;px++)patch[py*16+px]=Math.round((rnd()-.5)*16);
-    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-      const i=(y*size+x)*4,px=x,py=y;let v=patch[py*16+px],r=b[0]+v,g=b[1]+v,bl=b[2]+v;
-      if(kind==='grass'){if(y<10){r-=4;g+=8;bl-=2}if(rnd()<.035){r+=10;g+=13;bl+=4}}
-      if(kind==='dirt'){if(rnd()<.045){r-=14;g-=9;bl-=5}}
-      if(kind==='stone'){if(rnd()<.04){r+=12;g+=11;bl+=9}if(rnd()<.02){r-=14;g-=13;bl-=11}}
-      if(kind==='sand'&&rnd()<.055){r+=8;g+=7;bl+=3}
-      if(kind==='cobble'){const gx=Math.floor(x/8),gy=Math.floor(y/8);const seam=(x%8===0||y%8===0);if(seam){r-=24;g-=23;bl-=21}else{const q=((gx*17+gy*31+seed)>>>0)%4;r+=q*3;g+=q*3;bl+=q*3}}
-      if(kind==='wood'){const grain=Math.sin(x*.38+(y%10)*.25);r+=grain*7;g+=grain*5;bl+=grain*3;if(rnd()<.018){r-=24;g-=16;bl-=9}}
-      if(kind==='leaves'){if(rnd()<.13){r-=16;g-=14;bl-=8}}
-      if(kind==='brick'){const mortar=(x%16<2)||(y%8<2);if(mortar){r-=30;g-=28;bl-=25}}
-      if(kind==='ore'&&a&&rnd()<.06){r=a[0];g=a[1];bl=a[2]}
-      if(kind==='snow'&&rnd()<.04){r-=18;g-=17;bl-=15}
-      if(kind==='glass'){r=Math.max(r,145);g=Math.max(g,180);bl=Math.max(bl,195)}
-      r=Math.round(Math.max(0,Math.min(255,r))/8)*8;g=Math.round(Math.max(0,Math.min(255,g))/8)*8;bl=Math.round(Math.max(0,Math.min(255,bl))/8)*8;
-      data[i]=r;data[i+1]=g;data[i+2]=bl;data[i+3]=kind==='glass'?150:((kind==='leaves'||kind==='plant'||kind==='poppy'||kind==='dandelion'||kind==='dead_bush'||kind==='vine')&&rnd()<.12?0:255);
-    }
-    const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat,THREE.UnsignedByteType);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.generateMipmaps=false;t.wrapS=THREE.ClampToEdgeWrapping;t.wrapT=THREE.ClampToEdgeWrapping;t.flipY=false;t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;this._textureCache.set(file,t);return t;
-  }
+  // Guaranteed local 64x64 voxel textures. No image/CDN is required for the world.
+  // Each visible face receives the full 64x64 texture through the chunk UVs.
+  texture(file,base,accent=null,kind='noise'){return this.pixel64.texture(file,base,accent,kind)}
+  // Legacy imageTexture API retained for compatibility; world materials no longer depend on it.
   // Embedded 16x16 user textures. This is intentionally synchronous and local:
   // iOS Safari/WebViews cannot block world/menu startup on image decoding.
   imageTexture(path){
@@ -82,7 +58,7 @@ export class World{
       grass:['#667c43','#87975a','grass'],dirt:['#76583b',null,'dirt'],stone:['#77756f',null,'stone'],sand:['#c8b78a',null,'sand'],gravel:['#77756f',null,'cobble'],wood_side:['#765b3d',null,'wood'],wood_top:['#9a7a50',null,'wood'],leaves:['#536f3e','#718a52','leaves'],planks:['#92714a',null,'wood'],brick:['#8d5b50',null,'brick'],glass:['#a9c7c7',null,'glass'],water:['#587f91',null,'noise'],coal:['#383a38',null,'ore'],iron:['#77766f','#aaa79b','ore'],copper:['#77746b','#a36f50','ore'],furnace:['#696965',null,'stone'],chest:['#765735',null,'wood'],lantern:['#9b8050','#d0b36d','ore'],campfire:['#875b42','#c18a48','ore'],moss:['#5c7047',null,'grass'],glowstone:['#b4a36a','#d5c78d','ore'],cobble:['#686762',null,'cobble'],snow:['#d7dedb',null,'snow'],clay:['#96786d',null,'dirt'],farmland:['#664c39',null,'dirt'],wheat:['#87905a','#b0a765','grass'],bedrock:['#292a29',null,'cobble'],obsidian:['#292238',null,'noise'],diamond_ore:['#69777f','#55d7e8','ore'],gold_ore:['#7a7468','#e2b83e','ore'],birch_log:['#d7c49b','#6f5a3b','wood'],birch_leaves:['#75944e',null,'leaves'],spruce_log:['#60472e',null,'wood'],spruce_leaves:['#3f603b',null,'leaves'],jungle_log:['#7d4e2c',null,'wood'],jungle_leaves:['#3d823c',null,'leaves'],plant:['#5e963e',null,'grass'],poppy:['#b83d3d',null,'grass'],dandelion:['#e4c33c',null,'grass'],cactus:['#4d913e','#78ad4c','grass'],dead_bush:['#80683c',null,'wood'],vine:['#4c8b3f',null,'grass'],watermelon:['#4d813c','#c6c04d','grass']
     };
     const q=presets[file]||[color,null,'noise'];
-    const map=VOXEL_TEXTURES[file] ? this.imageTexture(file) : ((file==='grass_top.png'||file==='grass_side.png'||file==='grass_bottom.png') ? this.imageTexture(file) : this.texture(file,q[0],q[1],q[2]));
+    const map=(file==='grass_top.png')?this.texture('grass_top_64','#4f9f35','#b7d85a','grass_top'):(file==='grass_side.png')?this.texture('grass_side_64','#6d8f3f','#4b2e1d','grass_side'):(file==='grass_bottom.png')?this.texture('grass_bottom_64','#70492c',null,'dirt'):this.texture(file,q[0],q[1],q[2]);
     // Stable voxel path: use the native Lambert shader for world chunks.
     // The optional PBR/POM pipeline stays available in the project, but it is
     // not allowed to break the actual terrain render on iOS/WebGL.
