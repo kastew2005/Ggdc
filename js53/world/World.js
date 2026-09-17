@@ -7,13 +7,13 @@ import {GRASS_TEXTURES} from "./GrassTextures.js";
 import {VOXEL_TEXTURES} from "./VoxelTextures.js";
 import {PBRMaterialFactory} from "../rendering/PBRMaterialFactory.js";
 import {PixelMaterialFactory64} from "../rendering/PixelMaterialFactory64.js";
+import {BLOCK_TEXTURES,TEXTURE_REGISTRY} from '../assets/TextureRegistry.js';
 
 /*
  * Voxel Survival Universe 43
  * Performance pass:
  * - one draw group per block/material instead of one group per visible face;
- * - procedural textures remain cached, while supplied 16x16 grass textures are loaded locally;
- * - texture detail is procedural, so there are no external texture requests;
+ * - authored 64x64 PNG textures are served from the local asset registry;
  * - chunk rebuilds stay inside a small frame budget.
  */
 export class World{
@@ -27,7 +27,9 @@ export class World{
   initWorker(){if(this.workerStarted)return;this.workerStarted=true;try{const cores=navigator.hardwareConcurrency||2;const count=Math.max(1,Math.min(2,cores>4?2:1));for(let i=0;i<count;i++){const w=new Worker(new URL("./WorldWorker.js",import.meta.url),{type:"module"});w.onmessage=e=>{const job=this.workerJobs.get(e.data.id);if(!job)return;this.workerJobs.delete(e.data.id);if(e.data.error)job.reject(new Error(e.data.error));else job.resolve(new Uint8Array(e.data.buffer));};w.onerror=e=>{console.warn("World worker:",e.message);for(const [id,job] of this.workerJobs){job.reject(new Error("Worker failed"));this.workerJobs.delete(id)}};this.workers.push(w)}}catch(e){this.workers=[]}}
   key(x,z){return `${x},${z}`}
 
-  // Guaranteed local 64x64 voxel textures. No image/CDN is required for the world.
+  // Procedural textures remain as a deterministic fallback for blocks that do
+  // not yet have an authored sheet. Core terrain and interactable blocks use
+  // the asset registry below.
   // Each visible face receives the full 64x64 texture through the chunk UVs.
   texture(file,base,accent=null,kind='noise'){return this.pixel64.texture(file,base,accent,kind)}
   // Legacy imageTexture API retained for compatibility; world materials no longer depend on it.
@@ -58,7 +60,11 @@ export class World{
       grass:['#667c43','#87975a','grass'],dirt:['#76583b',null,'dirt'],stone:['#77756f',null,'stone'],sand:['#c8b78a',null,'sand'],gravel:['#77756f',null,'cobble'],wood_side:['#765b3d',null,'wood'],wood_top:['#9a7a50',null,'wood'],leaves:['#536f3e','#718a52','leaves'],planks:['#92714a',null,'wood'],brick:['#8d5b50',null,'brick'],glass:['#a9c7c7',null,'glass'],water:['#587f91',null,'noise'],coal:['#383a38',null,'ore'],iron:['#77766f','#aaa79b','ore'],copper:['#77746b','#a36f50','ore'],furnace:['#696965',null,'stone'],chest:['#765735',null,'wood'],lantern:['#9b8050','#d0b36d','ore'],campfire:['#875b42','#c18a48','ore'],moss:['#5c7047',null,'grass'],glowstone:['#b4a36a','#d5c78d','ore'],cobble:['#686762',null,'cobble'],snow:['#d7dedb',null,'snow'],clay:['#96786d',null,'dirt'],farmland:['#664c39',null,'dirt'],wheat:['#87905a','#b0a765','grass'],bedrock:['#292a29',null,'cobble'],obsidian:['#292238',null,'noise'],diamond_ore:['#69777f','#55d7e8','ore'],gold_ore:['#7a7468','#e2b83e','ore'],birch_log:['#d7c49b','#6f5a3b','wood'],birch_leaves:['#75944e',null,'leaves'],spruce_log:['#60472e',null,'wood'],spruce_leaves:['#3f603b',null,'leaves'],jungle_log:['#7d4e2c',null,'wood'],jungle_leaves:['#3d823c',null,'leaves'],plant:['#5e963e',null,'grass'],poppy:['#b83d3d',null,'grass'],dandelion:['#e4c33c',null,'grass'],cactus:['#4d913e','#78ad4c','grass'],dead_bush:['#80683c',null,'wood'],vine:['#4c8b3f',null,'grass'],watermelon:['#4d813c','#c6c04d','grass']
     };
     const q=presets[file]||[color,null,'noise'];
-    const map=(file==='grass_top.png')?this.texture('grass_top_64','#4f9f35','#b7d85a','grass_top'):(file==='grass_side.png')?this.texture('grass_side_64','#6d8f3f','#4b2e1d','grass_side'):(file==='grass_bottom.png')?this.texture('grass_bottom_64','#70492c',null,'dirt'):this.texture(file,q[0],q[1],q[2]);
+    const assetKey=file.replace(/\.png$/,'');
+    const authored=BLOCK_TEXTURES[assetKey] || BLOCK_TEXTURES[file];
+    const map=authored
+      ? TEXTURE_REGISTRY.pixel(authored,{transparent:!!opts.transparent})
+      : this.texture(file,q[0],q[1],q[2]);
     // Stable voxel path: use the native Lambert shader for world chunks.
     // The optional PBR/POM pipeline stays available in the project, but it is
     // not allowed to break the actual terrain render on iOS/WebGL.
@@ -80,7 +86,7 @@ export class World{
     const M={}, add=(id,color,file,opts={})=>{this._materialBlockId=id;M[id]=this.mat(color,file,opts);this._materialBlockId=null};
     // Supplied 16x16 grass atlas: separate top/side/bottom materials.
     this._materialBlockId=BLOCK.GRASS;M.grass_top=this.mat('#ffffff','grass_top.png');M.grass_side=this.mat('#ffffff','grass_side.png');M.grass_bottom=this.mat('#ffffff','grass_bottom.png');this._materialBlockId=null;
-    add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','gravel');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:true,alphaTest:.18,opacity:1,depthWrite:true});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','planks');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','birch_leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
+    add(BLOCK.GRASS,'#5b913b','grass');add(BLOCK.DIRT,'#79502d','dirt');add(BLOCK.STONE,'#777777','stone');add(BLOCK.SAND,'#d8c17a','sand');add(BLOCK.GRAVEL,'#77736b','cobble');add(BLOCK.LOG,'#7d542f','wood_side');add(BLOCK.LEAVES,'#3f8e3a','leaves',{transparent:true,alphaTest:.18,opacity:1,depthWrite:true});add(BLOCK.PLANKS,'#a56f3f','planks');add(BLOCK.GLASS,'#b9e8f5','glass',{transparent:true,opacity:.55});add(BLOCK.BRICK,'#9c4d40','brick');add(BLOCK.WATER,'#3973c9','water',{transparent:true,opacity:.55});add(BLOCK.COAL,'#303030','coal');add(BLOCK.IRON,'#777777','iron');add(BLOCK.COPPER,'#777777','copper');add(BLOCK.FURNACE,'#777777','furnace');add(BLOCK.CHEST,'#9a5b28','chest');add(BLOCK.LANTERN,'#d79b35','lantern');add(BLOCK.CAMPFIRE,'#d65d24','campfire');add(BLOCK.MOSS,'#4f8744','moss');add(BLOCK.GLOWSTONE,'#e7c85d','glowstone');add(BLOCK.COBBLE,'#696969','cobble');add(BLOCK.SNOW,'#e9f2f4','snow');add(BLOCK.CLAY,'#aa7667','clay');add(BLOCK.FARMLAND,'#6b452c','farmland');add(BLOCK.BED,'#c9c1b5','bed');add(BLOCK.CRAFTING_TABLE,'#a56f3f','crafting_table');add(BLOCK.OBSIDIAN,'#292238','obsidian');add(BLOCK.DIAMOND_ORE,'#6f7b83','diamond_ore');add(BLOCK.WHEAT,'#7f9a39','wheat',{transparent:true,opacity:.95});add(BLOCK.BEDROCK,'#171717','bedrock');    add(BLOCK.BIRCH_LOG,'#d7c49b','birch_log');add(BLOCK.BIRCH_LEAVES,'#75944e','leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
     add(BLOCK.SPRUCE_LOG,'#60472e','spruce_log');add(BLOCK.SPRUCE_LEAVES,'#3f603b','spruce_leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
     add(BLOCK.JUNGLE_LOG,'#7d4e2c','jungle_log');add(BLOCK.JUNGLE_LEAVES,'#3d823c','jungle_leaves',{transparent:true,alphaTest:.18,opacity:.98,depthWrite:true});
     add(BLOCK.GRASS_LOW,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_BOTTOM,'#5e963e','plant',{transparent:true,opacity:.95});add(BLOCK.GRASS_HIGH_TOP,'#5e963e','plant',{transparent:true,opacity:.95});
